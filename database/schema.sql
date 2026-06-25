@@ -1,0 +1,182 @@
+-- Enums for Roles, Difficulties, and Quality Ratings
+CREATE TYPE user_role AS ENUM ('STUDENT', 'TEACHER', 'ADMIN');
+CREATE TYPE question_difficulty AS ENUM ('EASY', 'MEDIUM', 'HARD');
+
+-- 1. Users Table
+CREATE TABLE users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    first_name VARCHAR(100) NOT NULL,
+    last_name VARCHAR(100) NOT NULL,
+    role user_role DEFAULT 'STUDENT',
+    xp_points INTEGER DEFAULT 0,
+    streak_count INTEGER DEFAULT 0,
+    last_active_date DATE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 2. Courses Table
+CREATE TABLE courses (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    price NUMERIC(10, 2) DEFAULT 0.00,
+    teacher_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 3. Enrollments Table
+CREATE TABLE enrollments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    course_id UUID REFERENCES courses(id) ON DELETE CASCADE,
+    payment_status VARCHAR(50) DEFAULT 'FREE', -- 'FREE', 'PAID', 'PENDING', 'FAILED'
+    enrolled_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(student_id, course_id)
+);
+
+-- 4. Payments Table
+CREATE TABLE payments (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    course_id UUID REFERENCES courses(id) ON DELETE CASCADE,
+    razorpay_order_id VARCHAR(255) UNIQUE NOT NULL,
+    razorpay_payment_id VARCHAR(255),
+    razorpay_signature VARCHAR(255),
+    amount NUMERIC(10, 2) NOT NULL,
+    status VARCHAR(50) NOT NULL, -- 'PENDING', 'SUCCESS', 'FAILED', 'REFUNDED'
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 5. Topics Table
+CREATE TABLE topics (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    course_id UUID REFERENCES courses(id) ON DELETE CASCADE,
+    title VARCHAR(255) NOT NULL,
+    description TEXT,
+    sequence_order INTEGER NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 6. Learning Materials Table (PDF Notes, Videos)
+CREATE TABLE materials (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    topic_id UUID REFERENCES topics(id) ON DELETE CASCADE,
+    title VARCHAR(255) NOT NULL,
+    type VARCHAR(50) NOT NULL, -- 'PDF' or 'VIDEO'
+    file_url TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 7. Quizzes Table
+CREATE TABLE quizzes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    topic_id UUID REFERENCES topics(id) ON DELETE CASCADE,
+    title VARCHAR(255) NOT NULL,
+    passing_score INTEGER DEFAULT 50,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 8. Questions Table
+CREATE TABLE questions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    quiz_id UUID REFERENCES quizzes(id) ON DELETE CASCADE,
+    content TEXT NOT NULL,
+    options JSONB NOT NULL, -- [{"id": "A", "text": "Option A"}, ...]
+    correct_option_id VARCHAR(50) NOT NULL,
+    difficulty question_difficulty NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 9. Quiz Attempts Table
+CREATE TABLE quiz_attempts (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    quiz_id UUID REFERENCES quizzes(id) ON DELETE CASCADE,
+    score INTEGER NOT NULL,
+    completed_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 10. Question Responses Table
+CREATE TABLE question_responses (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    attempt_id UUID REFERENCES quiz_attempts(id) ON DELETE CASCADE,
+    question_id UUID REFERENCES questions(id) ON DELETE CASCADE,
+    student_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    is_correct BOOLEAN NOT NULL,
+    time_spent_seconds INTEGER
+);
+
+-- 11. Progress Table (Skill Tracking per Topic)
+CREATE TABLE progress (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    topic_id UUID REFERENCES topics(id) ON DELETE CASCADE,
+    skill_score INTEGER DEFAULT 0 CHECK (skill_score >= 0 AND skill_score <= 100),
+    last_studied_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    completion_percentage INTEGER DEFAULT 0,
+    UNIQUE(student_id, topic_id)
+);
+
+-- 12. Study Plans Table
+CREATE TABLE study_plans (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    goal TEXT NOT NULL,
+    available_hours_daily NUMERIC(4, 2) NOT NULL,
+    start_date DATE NOT NULL,
+    end_date DATE NOT NULL,
+    plan_schedule JSONB NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 13. Spaced Repetition Table
+CREATE TABLE spaced_repetition (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    material_id UUID REFERENCES materials(id) ON DELETE CASCADE,
+    interval_days INTEGER DEFAULT 1,
+    easiness_factor NUMERIC(4, 2) DEFAULT 2.5,
+    repetitions INTEGER DEFAULT 0,
+    next_review_date DATE NOT NULL,
+    last_reviewed_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 14. Achievements & Badges Table
+CREATE TABLE achievements (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    title VARCHAR(100) NOT NULL,
+    description TEXT NOT NULL,
+    icon_url TEXT,
+    condition_type VARCHAR(50) NOT NULL,
+    condition_value INTEGER NOT NULL
+);
+
+-- 15. User Achievements Table
+CREATE TABLE user_achievements (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    achievement_id UUID REFERENCES achievements(id) ON DELETE CASCADE,
+    unlocked_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(student_id, achievement_id)
+);
+
+-- 16. Notifications Table
+CREATE TABLE notifications (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    title VARCHAR(255) NOT NULL,
+    message TEXT NOT NULL,
+    is_read BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Indexing for optimized joins and filtering
+CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_progress_student_topic ON progress(student_id, topic_id);
+CREATE INDEX idx_spaced_rep_next_review ON spaced_repetition(student_id, next_review_date);
+CREATE INDEX idx_questions_quiz_difficulty ON questions(quiz_id, difficulty);
+CREATE INDEX idx_quiz_attempts_student ON quiz_attempts(student_id);
+CREATE INDEX idx_payments_order_id ON payments(razorpay_order_id);
