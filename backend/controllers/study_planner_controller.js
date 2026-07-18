@@ -66,7 +66,26 @@ async function getLatestPlan(req, res) {
     }
 }
 
+/**
+ * Delete/reset the study plan for the logged-in student
+ */
+async function resetPlan(req, res) {
+    const studentId = req.user.id;
+
+    try {
+        await db.query('DELETE FROM study_plans WHERE student_id = $1', [studentId]);
+        return res.json({
+            success: true,
+            message: 'Study plan reset successfully.'
+        });
+    } catch (err) {
+        console.error('Reset plan controller error:', err.message);
+        return res.status(500).json({ error: 'Internal server error resetting study planner' });
+    }
+}
+
 module.exports = {
     generatePlan,
-    getLatestPlan
+    getLatestPlan,
+    resetPlan
 };

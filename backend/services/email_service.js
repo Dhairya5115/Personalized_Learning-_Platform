@@ -2,12 +2,16 @@ const nodemailer = require('nodemailer');
 require('dotenv').config();
 
 const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtp.mailtrap.io',
-    port: parseInt(process.env.SMTP_PORT) || 2525,
-    secure: process.env.SMTP_SECURE === 'true', // true for 465, false for 587/2525
+    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    port: parseInt(process.env.SMTP_PORT) || 587,
+    secure: process.env.SMTP_SECURE === 'true', // true for 465, false for 587
     auth: {
         user: process.env.SMTP_USER || '',
         pass: process.env.SMTP_PASS || ''
+    },
+    tls: {
+        // Allow self-signed certs in dev — safe for local/dev only
+        rejectUnauthorized: process.env.NODE_ENV === 'production'
     }
 });
 

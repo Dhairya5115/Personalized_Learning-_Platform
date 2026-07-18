@@ -13,6 +13,8 @@ CREATE TABLE users (
     xp_points INTEGER DEFAULT 0,
     streak_count INTEGER DEFAULT 0,
     last_active_date DATE,
+    reset_token VARCHAR(255),
+    reset_token_expiry TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
@@ -120,6 +122,15 @@ CREATE TABLE progress (
     UNIQUE(student_id, topic_id)
 );
 
+-- 11.5 Completed Materials Table (Track read/watched materials)
+CREATE TABLE completed_materials (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    material_id UUID REFERENCES materials(id) ON DELETE CASCADE,
+    completed_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(student_id, material_id)
+);
+
 -- 12. Study Plans Table
 CREATE TABLE study_plans (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -173,6 +184,14 @@ CREATE TABLE notifications (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- 17. AI Query Cache (For Cost Optimization)
+CREATE TABLE ai_query_cache (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    query_text TEXT UNIQUE NOT NULL,
+    answer_text TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Indexing for optimized joins and filtering
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_progress_student_topic ON progress(student_id, topic_id);
@@ -180,3 +199,4 @@ CREATE INDEX idx_spaced_rep_next_review ON spaced_repetition(student_id, next_re
 CREATE INDEX idx_questions_quiz_difficulty ON questions(quiz_id, difficulty);
 CREATE INDEX idx_quiz_attempts_student ON quiz_attempts(student_id);
 CREATE INDEX idx_payments_order_id ON payments(razorpay_order_id);
+CREATE INDEX idx_ai_cache_query ON ai_query_cache(query_text);

@@ -1,4 +1,5 @@
 const db = require('../config/db');
+const { recalculateProgress } = require('./progress_engine');
 
 /**
  * Fetch the next adaptive question for a student in a quiz.
@@ -6,52 +7,24 @@ const db = require('../config/db');
  * @param {string} quizId 
  * @param {string} topicId 
  */
-async function getNextQuestion(studentId, quizId, topicId) {
+async function getNextQuestion(studentId, quizId, topicId, excludeIds = []) {
     try {
-        // 1. Get the current skill score for this student and topic (default to 50 if new)
-        const progressRes = await db.query(
-            'SELECT skill_score FROM progress WHERE student_id = $1 AND topic_id = $2',
-            [studentId, topicId]
-        );
-        const skillScore = progressRes.rows.length > 0 ? progressRes.rows[0].skill_score : 50;
-
-        // 2. Map score to target difficulty
-        let targetDifficulty = 'MEDIUM';
-        if (skillScore < 40) {
-            targetDifficulty = 'EASY';
-        } else if (skillScore > 75) {
-            targetDifficulty = 'HARD';
+        // Find unanswered questions for this quiz
+        let excludeFilter = '';
+        let queryParams = [quizId];
+        if (excludeIds && excludeIds.length > 0) {
+            excludeFilter = ` AND NOT (q.id = ANY($2))`;
+            queryParams.push(excludeIds);
         }
 
-        // 3. Find unanswered questions of this difficulty for this quiz
-        let questionRes = await db.query(
+        const questionRes = await db.query(
             `SELECT q.id, q.content, q.options, q.difficulty 
              FROM questions q
-             WHERE q.quiz_id = $1 AND q.difficulty = $2
-               AND q.id NOT IN (
-                   SELECT qr.question_id 
-                   FROM question_responses qr
-                   WHERE qr.student_id = $3
-               )
+             WHERE q.quiz_id = $1
+               ${excludeFilter}
              ORDER BY RANDOM() LIMIT 1`,
-            [quizId, targetDifficulty, studentId]
+            queryParams
         );
-
-        // Fallback: If no unanswered questions exist in target tier, load from any difficulty
-        if (questionRes.rows.length === 0) {
-            questionRes = await db.query(
-                `SELECT q.id, q.content, q.options, q.difficulty 
-                 FROM questions q
-                 WHERE q.quiz_id = $1
-                   AND q.id NOT IN (
-                       SELECT qr.question_id 
-                       FROM question_responses qr
-                       WHERE qr.student_id = $2
-                   )
-                 ORDER BY RANDOM() LIMIT 1`,
-                [quizId, studentId]
-            );
-        }
 
         return questionRes.rows.length > 0 ? questionRes.rows[0] : null;
 
@@ -81,7 +54,7 @@ async function processQuizSubmission(studentId, quizId, topicId, answers) {
         // 1. Evaluate answers
         for (const answer of answers) {
             const questionRes = await client.query(
-                'SELECT correct_option_id, difficulty FROM questions WHERE id = $1',
+                'SELECT correct_option_id, difficulty, content, options FROM questions WHERE id = $1',
                 [answer.questionId]
             );
 
@@ -89,17 +62,23 @@ async function processQuizSubmission(studentId, quizId, topicId, answers) {
                 throw new Error(`Question ${answer.questionId} not found`);
             }
 
-            const { correct_option_id, difficulty } = questionRes.rows[0];
+            const { correct_option_id, difficulty, content, options } = questionRes.rows[0];
             const isCorrect = correct_option_id === answer.selectedOptionId;
 
             if (isCorrect) {
                 correctCount++;
             }
 
+            // Find the text of the correct option for review display
+            const optionsArr = typeof options === 'string' ? JSON.parse(options) : options;
+            const correctOption = optionsArr.find(o => o.id === correct_option_id);
+
             processedResponses.push({
                 questionId: answer.questionId,
+                content,
                 isCorrect,
-                difficulty
+                difficulty,
+                correctOptionText: correctOption ? correctOption.text : correct_option_id
             });
         }
 
@@ -123,33 +102,8 @@ async function processQuizSubmission(studentId, quizId, topicId, answers) {
             await client.query(insertResponseQuery, [attemptId, response.questionId, studentId, response.isCorrect]);
         }
 
-        // 4. Update topic skill score based on accuracy
-        const progressRes = await client.query(
-            'SELECT skill_score FROM progress WHERE student_id = $1 AND topic_id = $2',
-            [studentId, topicId]
-        );
-
-        let currentSkill = progressRes.rows.length > 0 ? progressRes.rows[0].skill_score : 50;
-        let newSkill = currentSkill;
-
-        if (scorePercentage > 80) {
-            newSkill = Math.min(100, currentSkill + 10);
-        } else if (scorePercentage < 50) {
-            newSkill = Math.max(0, currentSkill - 10);
-        } else {
-            newSkill = Math.min(100, currentSkill + 2); // completion reward
-        }
-
-        const updateProgressQuery = `
-            INSERT INTO progress (student_id, topic_id, skill_score, completion_percentage, last_studied_at)
-            VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
-            ON CONFLICT (student_id, topic_id)
-            DO UPDATE SET skill_score = EXCLUDED.skill_score, 
-                          completion_percentage = LEAST(100, progress.completion_percentage + 15),
-                          last_studied_at = CURRENT_TIMESTAMP
-            RETURNING skill_score
-        `;
-        await client.query(updateProgressQuery, [studentId, topicId, newSkill, 15]);
+        // Recalculate dynamic completion percentage based on notes, videos and quiz attempts
+        await recalculateProgress(studentId, topicId, client);
 
         // 5. Update user XP and maintain/update active streaks
         const userRes = await client.query(
@@ -164,14 +118,21 @@ async function processQuizSubmission(studentId, quizId, topicId, answers) {
 
         // Streak computation
         let newStreak = user.streak_count;
-        const today = new Date().toISOString().split('T')[0];
-        const lastActive = user.last_active_date ? new Date(user.last_active_date).toISOString().split('T')[0] : null;
+        const getLocalDateString = (date) => {
+            const d = new Date(date);
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        };
+        const today = getLocalDateString(new Date());
+        const lastActive = user.last_active_date ? getLocalDateString(user.last_active_date) : null;
 
         if (lastActive === null) {
             newStreak = 1;
         } else {
             const diffTime = Math.abs(new Date(today) - new Date(lastActive));
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
 
             if (diffDays === 1) {
                 newStreak = user.streak_count + 1; // consecutive day
@@ -225,11 +186,15 @@ async function processQuizSubmission(studentId, quizId, topicId, answers) {
             score: scorePercentage,
             correctCount,
             totalQuestions,
-            oldSkill: currentSkill,
-            newSkill,
             xpGained: xpReward,
             newStreak,
-            achievementsUnlocked
+            achievementsUnlocked,
+            questionReview: processedResponses.map(r => ({
+                content: r.content,
+                isCorrect: r.isCorrect,
+                difficulty: r.difficulty,
+                correctOptionText: r.correctOptionText
+            }))
         };
 
     } catch (err) {

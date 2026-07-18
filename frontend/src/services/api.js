@@ -60,7 +60,16 @@ const api = {
         method: 'POST',
         body: { email, password, firstName, lastName, role }
     }),
+    forgotPassword: (email) => apiCall('/auth/forgot-password', {
+        method: 'POST',
+        body: { email }
+    }),
+    resetPassword: (token, newPassword) => apiCall('/auth/reset-password', {
+        method: 'POST',
+        body: { token, newPassword }
+    }),
     getProfile: () => apiCall('/auth/profile'),
+    getLeaderboard: () => apiCall('/auth/leaderboard'),
 
     // Courses
     getCourses: () => apiCall('/courses'),
@@ -74,21 +83,107 @@ const api = {
         method: 'POST',
         body: { title, description, sequenceOrder }
     }),
+    getMaterials: (topicId) => apiCall(`/courses/topics/${topicId}/materials`),
+    createMaterial: (topicId, title, type, fileUrl, isPremium, price) => apiCall(`/courses/topics/${topicId}/materials`, {
+        method: 'POST',
+        body: { title, type, fileUrl, isPremium, price }
+    }),
+    deleteMaterial: (id) => apiCall(`/courses/materials/${id}`, {
+        method: 'DELETE'
+    }),
+    deleteCourse: (id) => apiCall(`/courses/${id}`, {
+        method: 'DELETE'
+    }),
+    deleteTopic: (id) => apiCall(`/courses/topics/${id}`, {
+        method: 'DELETE'
+    }),
+    completeMaterial: (id) => apiCall(`/courses/materials/${id}/complete`, {
+        method: 'POST'
+    }),
     enrollInCourse: (courseId) => apiCall('/courses/enroll', {
         method: 'POST',
         body: { courseId }
     }),
     getEnrolledCourses: () => apiCall('/courses/enrolled'),
+    uploadLocal: (filename, fileData) => apiCall('/courses/upload-local', {
+        method: 'POST',
+        body: { filename, fileData }
+    }),
+    getTeacherStudentProgress: () => apiCall('/courses/teacher/student-progress'),
 
     // Payments
-    createPaymentOrder: (courseId) => apiCall('/payments/create-order', {
-        method: 'POST',
-        body: { courseId }
-    }),
+    createPaymentOrder: (courseIdOrPayload) => {
+        const body = typeof courseIdOrPayload === 'object' ? courseIdOrPayload : { courseId: courseIdOrPayload };
+        return apiCall('/payments/create-order', {
+            method: 'POST',
+            body
+        });
+    },
     verifyPayment: (payload) => apiCall('/payments/verify', {
         method: 'POST',
         body: payload
-    })
+    }),
+
+    // Quizzes
+    getQuizzesByTopic: (topicId) => apiCall(`/quiz/topic/${topicId}`),
+    getNextQuestion: (quizId, exclude) => apiCall(`/quiz/${quizId}/next${exclude ? `?exclude=${exclude}` : ''}`),
+    submitQuiz: (quizId, responses) => apiCall('/quiz/submit', {
+        method: 'POST',
+        body: { quizId, responses }
+    }),
+    createQuiz: (topicId, title, passingScore) => apiCall('/quiz', {
+        method: 'POST',
+        body: { topicId, title, passingScore }
+    }),
+    addQuestionToQuiz: (quizId, questionData) => apiCall(`/quiz/${quizId}/questions`, {
+        method: 'POST',
+        body: questionData
+    }),
+    generateAiQuiz: (topicId) => apiCall(`/quiz/topic/${topicId}/generate-ai`, {
+        method: 'POST'
+    }),
+    deleteQuiz: (quizId) => apiCall(`/quiz/${quizId}`, {
+        method: 'DELETE'
+    }),
+    getQuizQuestions: (quizId) => apiCall(`/quiz/${quizId}/questions`),
+    updateQuestion: (questionId, questionData) => apiCall(`/quiz/questions/${questionId}`, {
+        method: 'PUT',
+        body: questionData
+    }),
+    deleteQuestion: (questionId) => apiCall(`/quiz/questions/${questionId}`, {
+        method: 'DELETE'
+    }),
+
+    // Planner
+    generatePlan: (goal, availableHours, examDate) => apiCall('/planner/generate', {
+        method: 'POST',
+        body: { goal, availableHours, examDate }
+    }),
+    getLatestPlan: () => apiCall('/planner/latest'),
+    resetPlan: () => apiCall('/planner/reset', {
+        method: 'DELETE'
+    }),
+
+    // Spaced Repetition (SRS)
+    getOverdueReviews: () => apiCall('/reviews/overdue'),
+    submitReview: (materialId, quality) => apiCall('/reviews/review', {
+        method: 'POST',
+        body: { materialId, quality }
+    }),
+    registerMaterialForSrs: (materialId) => apiCall('/reviews/register', {
+        method: 'POST',
+        body: { materialId }
+    }),
+
+    // AI doubt solver
+    solveDoubt: (query, courseId = null, topicId = null) => apiCall('/ai/doubt-solve', {
+        method: 'POST',
+        body: { query, courseId, topicId }
+    }),
+
+    // Analytics
+    getAnalytics: () => apiCall('/analytics/report'),
+    getTeacherAnalytics: () => apiCall('/analytics/teacher')
 };
 
 export default api;

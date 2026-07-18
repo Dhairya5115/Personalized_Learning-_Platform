@@ -16,4 +16,14 @@ router.post('/:courseId/topics', authenticateToken, requireRole(['TEACHER', 'ADM
 // Student actions
 router.post('/enroll', authenticateToken, requireRole(['STUDENT']), courseController.enrollInCourse);
 
+// Learning Materials
+router.get('/topics/:topicId/materials', authenticateToken, courseController.getMaterialsByTopic);
+router.post('/topics/:topicId/materials', authenticateToken, requireRole(['TEACHER', 'ADMIN']), courseController.createMaterial);
+router.delete('/materials/:id', authenticateToken, requireRole(['TEACHER', 'ADMIN']), courseController.deleteMaterial);
+router.delete('/topics/:id', authenticateToken, requireRole(['TEACHER', 'ADMIN']), courseController.deleteTopic);
+router.delete('/:id', authenticateToken, requireRole(['TEACHER', 'ADMIN']), courseController.deleteCourse);
+router.post('/materials/:id/complete', authenticateToken, requireRole(['STUDENT']), courseController.completeMaterial);
+router.post('/upload-local', authenticateToken, requireRole(['TEACHER', 'ADMIN']), courseController.uploadLocalFile);
+router.get('/teacher/student-progress', authenticateToken, requireRole(['TEACHER', 'ADMIN']), courseController.getTeacherStudentProgress);
+
 module.exports = router;

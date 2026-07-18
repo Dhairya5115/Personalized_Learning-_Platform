@@ -1,6 +1,8 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 const db = require('../config/db');
+const emailService = require('../services/email_service');
 require('dotenv').config();
 
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_for_local_dev';
@@ -99,7 +101,14 @@ async function login(req, res) {
         }
 
         // Update last active date to track streaks
-        const todayStr = new Date().toISOString().split('T')[0];
+        const getLocalDateString = (date) => {
+            const d = new Date(date);
+            const year = d.getFullYear();
+            const month = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        };
+        const todayStr = getLocalDateString(new Date());
         await db.query('UPDATE users SET last_active_date = $1 WHERE id = $2', [todayStr, user.id]);
 
         // 3. Generate JWT Token
@@ -158,8 +167,103 @@ async function getProfile(req, res) {
     }
 }
 
+/**
+ * Fetch leaderboard ranking list (top students by XP)
+ */
+async function getLeaderboard(req, res) {
+    try {
+        const queryText = `
+            SELECT id, first_name, last_name, xp_points, streak_count 
+            FROM users 
+            WHERE role = 'STUDENT'
+            ORDER BY xp_points DESC 
+            LIMIT 10
+        `;
+        const result = await db.query(queryText);
+        return res.json(result.rows);
+    } catch (err) {
+        console.error('Get leaderboard error:', err.message);
+        return res.status(500).json({ error: 'Internal server error fetching leaderboard' });
+    }
+}
+
+/**
+ * Initiate Forgot Password Token & Email reset link
+ */
+async function forgotPassword(req, res) {
+    const { email } = req.body;
+    if (!email) {
+        return res.status(400).json({ error: 'Email address is required' });
+    }
+
+    try {
+        const userRes = await db.query('SELECT id, first_name FROM users WHERE email = $1', [email.toLowerCase().trim()]);
+        if (userRes.rows.length === 0) {
+            return res.json({ success: true, message: 'If email exists, reset instructions have been sent.' });
+        }
+
+        const user = userRes.rows[0];
+        const token = crypto.randomBytes(24).toString('hex');
+        const tokenExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour validity
+
+        await db.query(
+            'UPDATE users SET reset_token = $1, reset_token_expiry = $2 WHERE id = $3',
+            [token, tokenExpiry, user.id]
+        );
+
+        emailService.sendPasswordReset(email.toLowerCase().trim(), token);
+
+        return res.json({ success: true, message: 'Password reset email template dispatched successfully.' });
+
+    } catch (err) {
+        console.error('Forgot password error:', err.message);
+        return res.status(500).json({ error: 'Internal server error processing forgot password token generation' });
+    }
+}
+
+/**
+ * Verify reset token & apply new password changes
+ */
+async function resetPassword(req, res) {
+    const { token, newPassword } = req.body;
+    if (!token || !newPassword) {
+        return res.status(400).json({ error: 'Reset token and newPassword string are required' });
+    }
+
+    try {
+        const todayStr = new Date();
+        const userRes = await db.query(
+            'SELECT id FROM users WHERE reset_token = $1 AND reset_token_expiry > $2',
+            [token, todayStr]
+        );
+
+        if (userRes.rows.length === 0) {
+            return res.status(400).json({ error: 'Token is invalid or has expired.' });
+        }
+
+        const user = userRes.rows[0];
+
+        const salt = await bcrypt.genSalt(12);
+        const passwordHash = await bcrypt.hash(newPassword, salt);
+
+        await db.query(
+            'UPDATE users SET password_hash = $1, reset_token = NULL, reset_token_expiry = NULL WHERE id = $2',
+            [passwordHash, user.id]
+        );
+
+        return res.json({ success: true, message: 'Password has been reset successfully.' });
+
+    } catch (err) {
+        console.error('Reset password error:', err.message);
+        return res.status(500).json({ error: 'Internal server error writing new password hash' });
+    }
+}
+
 module.exports = {
     register,
     login,
-    getProfile
+    getProfile,
+    getLeaderboard,
+    forgotPassword,
+    resetPassword
 };

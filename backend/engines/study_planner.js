@@ -55,45 +55,12 @@ async function generateStudyPlan(studentId, goalText, availableHoursDaily, examD
 
         const topics = topicsRes.rows;
 
-        // 4. Fetch student progress (skill scores) for these topics
-        const progressRes = await db.query(
-            `SELECT topic_id, skill_score FROM progress WHERE student_id = $1`,
-            [studentId]
-        );
-        const skillScoreMap = {};
-        progressRes.rows.forEach(p => {
-            skillScoreMap[p.topic_id] = p.skill_score;
-        });
-
-        // 5. Fetch spaced repetition status (pending review counts per material/topic)
-        const overdueSrsRes = await db.query(
-            `SELECT m.topic_id, COUNT(sr.id) as count 
-             FROM spaced_repetition sr
-             JOIN materials m ON sr.material_id = m.id
-             WHERE sr.student_id = $1 AND sr.next_review_date <= $2
-             GROUP BY m.topic_id`,
-            [studentId, today.toISOString().split('T')[0]]
-        );
-        const overdueSrsMap = {};
-        overdueSrsRes.rows.forEach(item => {
-            overdueSrsMap[item.topic_id] = parseInt(item.count) || 0;
-        });
-
-        // 6. Compute priority score for each topic
-        // Priority Score = (0.40 * Urgency) + (0.35 * (100 - SkillScore)) + (0.25 * OverdueCount * 20)
+        // 4. Compute priority score for each topic based on sequence order and exam urgency
         const prioritizedTopics = topics.map(topic => {
-            const skillScore = skillScoreMap[topic.id] !== undefined ? skillScoreMap[topic.id] : 50;
-            const overdueCount = overdueSrsMap[topic.id] || 0;
-
-            const weaknessScore = 100 - skillScore; // Low skill score = high priority
-            const srsUrgency = Math.min(100, overdueCount * 20); // Cap srs contribution at 100
-
-            const priorityScore = (0.40 * examUrgencyScore) + (0.35 * weaknessScore) + (0.25 * srsUrgency);
+            const priorityScore = (0.50 * examUrgencyScore) + (0.50 * (10 - (topic.sequence_order || 0)));
 
             return {
                 ...topic,
-                skillScore,
-                overdueCount,
                 priorityScore: parseFloat(priorityScore.toFixed(2))
             };
         });
@@ -101,18 +68,26 @@ async function generateStudyPlan(studentId, goalText, availableHoursDaily, examD
         // Sort topics: highest priority first
         prioritizedTopics.sort((a, b) => b.priorityScore - a.priorityScore);
 
-        // 7. Schedule study sessions for a 7-day rolling window
+        // 5. Schedule study sessions for a 7-day rolling window
         const schedule = [];
         const studyDays = 7;
+        let currentTopicIdx = 0;
         
         for (let dayOffset = 0; dayOffset < studyDays; dayOffset++) {
             const targetDate = new Date();
             targetDate.setDate(today.getDate() + dayOffset);
             const targetDateStr = targetDate.toISOString().split('T')[0];
 
-            // Distribute available study time across top priority topics (cap at 2 topics per day to prevent overload)
+            // Distribute available study time across top priority topics round-robin (cap at 2 unique topics per day)
             const dailyAllocation = [];
-            const topicsToStudy = prioritizedTopics.slice(0, 2);
+            const topicsToStudy = [];
+            
+            const numTopicsToSelect = Math.min(2, prioritizedTopics.length);
+            for (let i = 0; i < numTopicsToSelect; i++) {
+                const topic = prioritizedTopics[currentTopicIdx % prioritizedTopics.length];
+                topicsToStudy.push(topic);
+                currentTopicIdx++;
+            }
 
             if (topicsToStudy.length > 0) {
                 const hoursPerTopic = parseFloat((availableHoursDaily / topicsToStudy.length).toFixed(1));
@@ -121,7 +96,7 @@ async function generateStudyPlan(studentId, goalText, availableHoursDaily, examD
                         topicId: topic.id,
                         topicTitle: topic.title,
                         hours: hoursPerTopic,
-                        focusArea: topic.skillScore < 40 ? 'Foundational Notes' : topic.skillScore < 75 ? 'Practice Quizzes' : 'Advanced Explanations'
+                        focusArea: 'Practice & Study'
                     });
                 });
             }
@@ -140,7 +115,7 @@ async function generateStudyPlan(studentId, goalText, availableHoursDaily, examD
         const insertQuery = `
             INSERT INTO study_plans (student_id, goal, available_hours_daily, start_date, end_date, plan_schedule)
             VALUES ($1, $2, $3, $4, $5, $6)
-            RETURNING id, plan_schedule, created_at
+            RETURNING *
         `;
         const result = await db.query(insertQuery, [
             studentId,

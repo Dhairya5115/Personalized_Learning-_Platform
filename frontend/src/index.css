@@ -1,296 +1,54 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
 
-:root {
-  --bg-primary: #0f172a;       /* slate-900 */
-  --bg-secondary: #1e293b;     /* slate-800 */
-  --bg-tertiary: #334155;      /* slate-700 */
-  --accent-indigo: #6366f1;
-  --accent-emerald: #10b981;
-  --accent-rose: #f43f5e;
-  --accent-amber: #f59e0b;
-  --text-main: #f8fafc;
-  --text-muted: #94a3b8;
-  --border-color: #334155;
-  --glass-bg: rgba(30, 41, 59, 0.7);
-  --glass-border: rgba(255, 255, 255, 0.08);
-  --font-sans: 'Outfit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-size: 112.5%;
+  }
+  body {
+    @apply font-sans bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 transition-colors duration-200 antialiased;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply tracking-tight font-bold;
+    letter-spacing: -0.02em;
+  }
+
+  input[type="text"], input[type="email"], input[type="password"], input[type="number"], select, textarea {
+    @apply py-2.5 text-sm !important;
+  }
+  input[type="text"]:not([class*="pl-"]), input[type="email"]:not([class*="pl-"]), input[type="password"]:not([class*="pl-"]), input[type="number"], select, textarea {
+    @apply px-4 !important;
+  }
 }
 
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
-body {
-  background-color: var(--bg-primary);
-  color: var(--text-main);
-  font-family: var(--font-sans);
-  min-height: 100vh;
-  overflow-x: hidden;
-  -webkit-font-smoothing: antialiased;
-}
-
-a {
-  color: var(--accent-indigo);
-  text-decoration: none;
-  transition: color 0.2s ease;
-}
-
-a:hover {
-  color: #818cf8;
-}
-
-button {
-  font-family: var(--font-sans);
-  cursor: pointer;
-}
-
-/* Scrollbar Styles */
+/* Custom Scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--bg-primary);
+  @apply bg-transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--bg-tertiary);
-  border-radius: 4px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #475569;
+  @apply bg-slate-300 dark:bg-slate-800 rounded-full hover:bg-slate-400 dark:hover:bg-slate-700 transition-colors;
 }
 
-/* Premium Layout Components */
-.app-container {
-  display: flex;
-  min-height: 100vh;
+/* Glassmorphism utility card */
+.glass-panel {
+  @apply bg-white/80 dark:bg-slate-900/60 backdrop-blur-md border border-slate-200/80 dark:border-slate-800/80 shadow-sm rounded-2xl p-6 transition-all duration-200;
+}
+.glass-panel:hover {
+  @apply border-indigo-500/30 dark:border-indigo-400/20 shadow-md transform -translate-y-[1px];
 }
 
-.sidebar {
-  width: 260px;
-  background-color: var(--bg-secondary);
-  border-right: 1px solid var(--border-color);
-  display: flex;
-  flex-direction: column;
-  padding: 24px;
-  position: sticky;
-  top: 0;
-  height: 100vh;
-}
-
-.main-content {
-  flex: 1;
-  padding: 40px;
-  overflow-y: auto;
-  max-width: 1200px;
-  margin: 0 auto;
-  width: 100%;
-}
-
-/* Glassmorphism Card Style */
-.card {
-  background: var(--glass-bg);
-  backdrop-filter: blur(12px);
-  border: 1px solid var(--glass-border);
-  border-radius: 16px;
-  padding: 24px;
-  margin-bottom: 24px;
-  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 30px rgba(99, 102, 241, 0.15);
-}
-
-/* Auth Screens Form Layout */
-.auth-wrapper {
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: radial-gradient(circle at top right, rgba(99, 102, 241, 0.15), transparent 40%),
-              radial-gradient(circle at bottom left, rgba(16, 185, 129, 0.15), transparent 40%);
-}
-
-.auth-card {
-  width: 100%;
-  max-width: 440px;
-  padding: 40px;
-  border-radius: 24px;
-}
-
-.form-group {
-  margin-bottom: 20px;
-}
-
-.form-label {
-  display: block;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-muted);
-  margin-bottom: 8px;
-}
-
-.form-input {
-  width: 100%;
-  padding: 12px 16px;
-  border-radius: 8px;
-  background-color: rgba(15, 23, 42, 0.6);
-  border: 1px solid var(--border-color);
-  color: var(--text-main);
-  font-family: var(--font-sans);
-  font-size: 15px;
-  transition: border-color 0.2s, box-shadow 0.2s;
-}
-
-.form-input:focus {
-  outline: none;
-  border-color: var(--accent-indigo);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
-}
-
-/* Button UI Components */
-.btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 12px 24px;
-  border-radius: 8px;
-  font-weight: 600;
-  font-size: 15px;
-  transition: all 0.2s ease;
-  border: none;
-  gap: 8px;
-}
-
-.btn-primary {
-  background-color: var(--accent-indigo);
-  color: white;
-}
-
-.btn-primary:hover {
-  background-color: #4f46e5;
-  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
-}
-
-.btn-secondary {
-  background-color: transparent;
-  border: 1px solid var(--border-color);
-  color: var(--text-main);
-}
-
-.btn-secondary:hover {
-  background-color: rgba(255, 255, 255, 0.05);
-}
-
-.btn-success {
-  background-color: var(--accent-emerald);
-  color: white;
-}
-
-.btn-success:hover {
-  background-color: #059669;
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
-}
-
-/* Headers & Indicators */
-.title-large {
-  font-size: 32px;
-  font-weight: 700;
-  background: linear-gradient(to right, #ffffff, #a5b4fc);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  margin-bottom: 8px;
-}
-
-.title-medium {
-  font-size: 20px;
-  font-weight: 600;
-  margin-bottom: 16px;
-}
-
-.badge {
-  display: inline-block;
-  padding: 4px 8px;
-  border-radius: 9999px;
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-}
-
-.badge-student {
-  background-color: rgba(99, 102, 241, 0.2);
-  color: #a5b4fc;
-}
-
-.badge-teacher {
-  background-color: rgba(16, 185, 129, 0.2);
-  color: #6ee7b7;
-}
-
-/* Navigation items */
-.nav-list {
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 32px;
-  flex: 1;
-}
-
-.nav-link {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
-  border-radius: 12px;
-  color: var(--text-muted);
-  font-weight: 500;
-  transition: all 0.2s ease;
-}
-
-.nav-link:hover, .nav-link.active {
-  background-color: rgba(99, 102, 241, 0.15);
-  color: var(--text-main);
-}
-
-/* Course Grid View */
-.course-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 24px;
-}
-
-.price-tag {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--accent-emerald);
-}
-
-.streak-indicator {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background-color: rgba(245, 158, 11, 0.15);
-  border: 1px solid rgba(245, 158, 11, 0.3);
-  padding: 6px 12px;
-  border-radius: 12px;
-  color: var(--accent-amber);
-  font-weight: 600;
-}
-
-.xp-indicator {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background-color: rgba(99, 102, 241, 0.15);
-  border: 1px solid rgba(99, 102, 241, 0.3);
-  padding: 6px 12px;
-  border-radius: 12px;
-  color: #a5b4fc;
-  font-weight: 600;
+/* Premium gradient titles */
+.gradient-title {
+  @apply bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 dark:from-white dark:via-indigo-200 dark:to-slate-200 bg-clip-text text-transparent;
 }

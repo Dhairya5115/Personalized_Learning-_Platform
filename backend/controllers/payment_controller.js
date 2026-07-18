@@ -5,7 +5,7 @@ const emailService = require('../services/email_service');
 require('dotenv').config();
 
 // Initialize Razorpay SDK. Fallback dummy configuration if keys are missing in env.
-const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID || 'rzp_test_dummy_id';
+const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID  || 'rzp_test_dummy_id';
 const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET || 'dummy_secret';
 
 const razorpay = new Razorpay({
@@ -17,25 +17,44 @@ const razorpay = new Razorpay({
  * Initiate Razorpay Order
  */
 async function createOrder(req, res) {
-    const { courseId } = req.body;
+    const { courseId, materialId } = req.body;
     const studentId = req.user.id;
 
-    if (!courseId) {
-        return res.status(400).json({ error: 'courseId is required' });
+    if (!courseId && !materialId) {
+        return res.status(400).json({ error: 'courseId or materialId is required' });
     }
 
     try {
-        // Get course details
-        const courseRes = await db.query('SELECT title, price FROM courses WHERE id = $1', [courseId]);
-        if (courseRes.rows.length === 0) {
-            return res.status(404).json({ error: 'Course not found' });
+        let title = '';
+        let price = 0.00;
+
+        if (materialId) {
+            // Get material details
+            const matRes = await db.query('SELECT title, price, is_premium FROM materials WHERE id = $1', [materialId]);
+            if (matRes.rows.length === 0) {
+                return res.status(404).json({ error: 'Material not found' });
+            }
+            const material = matRes.rows[0];
+            if (!material.is_premium) {
+                return res.status(400).json({ error: 'This material is free. No payment required.' });
+            }
+            title = material.title;
+            price = parseFloat(material.price);
+        } else {
+            // Get course details
+            const courseRes = await db.query('SELECT title, price FROM courses WHERE id = $1', [courseId]);
+            if (courseRes.rows.length === 0) {
+                return res.status(404).json({ error: 'Course not found' });
+            }
+            const course = courseRes.rows[0];
+            title = course.title;
+            price = parseFloat(course.price);
         }
 
-        const course = courseRes.rows[0];
-        const amountInPaise = Math.round(parseFloat(course.price) * 100);
+        const amountInPaise = Math.round(price * 100);
 
         if (amountInPaise <= 0) {
-            return res.status(400).json({ error: 'Course is free. Direct enrollment should be used.' });
+            return res.status(400).json({ error: 'This item is free. No payment required.' });
         }
 
         const options = {
@@ -48,20 +67,22 @@ async function createOrder(req, res) {
 
         // Store pending payment in database
         const insertQuery = `
-            INSERT INTO payments (student_id, course_id, razorpay_order_id, amount, status)
-            VALUES ($1, $2, $3, $4, $5)
+            INSERT INTO payments (student_id, course_id, material_id, razorpay_order_id, amount, status)
+            VALUES ($1, $2, $3, $4, $5, $6)
             RETURNING *
         `;
         await db.query(insertQuery, [
             studentId,
-            courseId,
+            courseId || null,
+            materialId || null,
             order.id,
-            course.price,
+            price,
             'PENDING'
         ]);
 
         return res.status(201).json({
             success: true,
+            key: RAZORPAY_KEY_ID,
             orderId: order.id,
             amount: order.amount,
             currency: order.currency
@@ -98,7 +119,7 @@ async function verifyPayment(req, res) {
                 UPDATE payments 
                 SET razorpay_payment_id = $1, razorpay_signature = $2, status = 'SUCCESS'
                 WHERE razorpay_order_id = $3
-                RETURNING course_id, amount
+                RETURNING course_id, material_id, amount
             `;
             const paymentResult = await db.query(updatePaymentQuery, [
                 razorpay_payment_id,
@@ -110,37 +131,56 @@ async function verifyPayment(req, res) {
                 return res.status(404).json({ error: 'Transaction order record not found in database' });
             }
 
-            const { course_id, amount } = paymentResult.rows[0];
+            const { course_id, material_id, amount } = paymentResult.rows[0];
 
-            // Insert enrollment
-            const insertEnrollmentQuery = `
-                INSERT INTO enrollments (student_id, course_id, payment_status)
-                VALUES ($1, $2, 'PAID')
-                ON CONFLICT (student_id, course_id) 
-                DO UPDATE SET payment_status = 'PAID'
-            `;
-            await db.query(insertEnrollmentQuery, [studentId, course_id]);
+            if (course_id) {
+                // Insert enrollment
+                const insertEnrollmentQuery = `
+                    INSERT INTO enrollments (student_id, course_id, payment_status)
+                    VALUES ($1, $2, 'PAID')
+                    ON CONFLICT (student_id, course_id) 
+                    DO UPDATE SET payment_status = 'PAID'
+                `;
+                await db.query(insertEnrollmentQuery, [studentId, course_id]);
 
-            // Retrieve student & course details to trigger Nodemailer receipt
-            const studentRes = await db.query('SELECT email, first_name FROM users WHERE id = $1', [studentId]);
-            const courseRes = await db.query('SELECT title FROM courses WHERE id = $1', [course_id]);
+                // Retrieve student & course details to trigger Nodemailer receipt
+                const studentRes = await db.query('SELECT email, first_name FROM users WHERE id = $1', [studentId]);
+                const courseRes = await db.query('SELECT title FROM courses WHERE id = $1', [course_id]);
 
-            if (studentRes.rows.length > 0 && courseRes.rows.length > 0) {
-                const student = studentRes.rows[0];
-                const course = courseRes.rows[0];
-                
-                // Run asynchronous email sending
-                emailService.sendPurchaseConfirmation(
-                    student.email,
-                    student.first_name,
-                    course.title,
-                    amount
-                );
+                if (studentRes.rows.length > 0 && courseRes.rows.length > 0) {
+                    const student = studentRes.rows[0];
+                    const course = courseRes.rows[0];
+                    
+                    // Run asynchronous email sending
+                    emailService.sendPurchaseConfirmation(
+                        student.email,
+                        student.first_name,
+                        course.title,
+                        amount
+                    );
+                }
+            } else if (material_id) {
+                // Retrieve student & material details to trigger Nodemailer receipt
+                const studentRes = await db.query('SELECT email, first_name FROM users WHERE id = $1', [studentId]);
+                const materialRes = await db.query('SELECT title FROM materials WHERE id = $1', [material_id]);
+
+                if (studentRes.rows.length > 0 && materialRes.rows.length > 0) {
+                    const student = studentRes.rows[0];
+                    const material = materialRes.rows[0];
+                    
+                    // Run asynchronous email sending
+                    emailService.sendPurchaseConfirmation(
+                        student.email,
+                        student.first_name,
+                        `Premium Material: ${material.title}`,
+                        amount
+                    );
+                }
             }
 
             return res.json({
                 success: true,
-                message: 'Payment verified and enrollment created successfully'
+                message: 'Payment verified successfully'
             });
 
         } else {

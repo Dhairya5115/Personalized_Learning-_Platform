@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
-import { BookOpen, Plus, Users, Award, Flame, Star } from 'lucide-react';
+import { BookOpen, Plus, ChevronRight, Trophy, LineChart } from 'lucide-react';
 
 export default function Dashboard({ onSelectCourse, onGoToCatalog }) {
     const { user } = useAuth();
     const [enrolled, setEnrolled] = useState([]);
+    const [analytics, setAnalytics] = useState(null);
     const [loading, setLoading] = useState(true);
 
     // Teacher forms
@@ -25,6 +26,8 @@ export default function Dashboard({ onSelectCourse, onGoToCatalog }) {
             if (user.role === 'STUDENT') {
                 const list = await api.getEnrolledCourses();
                 setEnrolled(list);
+                const report = await api.getAnalytics();
+                setAnalytics(report);
             } else {
                 // For teachers, filter courses by teacher_id from all courses
                 const list = await api.getCourses();
@@ -51,202 +54,225 @@ export default function Dashboard({ onSelectCourse, onGoToCatalog }) {
         try {
             await api.createCourse(newCourseTitle, newCourseDesc, newCoursePrice);
             setCreateSuccess(true);
-            setNewCourseTitle('');
-            setNewCourseDesc('');
-            setNewCoursePrice('0');
+            setNewCourseTitle(''); setNewCourseDesc(''); setNewCoursePrice('0');
             loadDashboardData();
-        } catch (err) {
-            setError(err.message || 'Failed to create course');
-        }
+        } catch (err) { setError(err.message || 'Failed to create course'); }
     };
 
-    if (loading) {
-        return <div style={{ color: 'var(--text-muted)' }}>Loading dashboard panel...</div>;
-    }
+    const renderHeatmap = () => {
+        const heatmapData = analytics?.studyHeatmap || [];
+        const map = {};
+        heatmapData.forEach(item => { const d = item.activity_date.split('T')[0]; map[d] = item.count; });
+        const today = new Date();
+        const startDate = new Date();
+        startDate.setDate(today.getDate() - 84);
+        startDate.setDate(startDate.getDate() - startDate.getDay());
+        const gridCells = [];
+        const tempDate = new Date(startDate);
+        while (tempDate <= today) {
+            const dateStr = tempDate.toISOString().split('T')[0];
+            gridCells.push({ date: dateStr, count: map[dateStr] || 0 });
+            tempDate.setDate(tempDate.getDate() + 1);
+        }
+        return (
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm h-full flex flex-col">
+                <div className="flex items-center gap-3 mb-6">
+                    <LineChart className="text-indigo-600 dark:text-indigo-400" size={20} />
+                    <h2 className="text-base font-bold text-slate-900 dark:text-slate-100">Study Activity Grid</h2>
+                </div>
+                <div className="flex gap-1.5 overflow-x-auto py-1 flex-1">
+                    <div className="grid grid-flow-col grid-rows-7 gap-1">
+                        {gridCells.map((cell, idx) => {
+                            let c = 'bg-slate-100 dark:bg-slate-800';
+                            if (cell.count > 0 && cell.count <= 1) c = 'bg-indigo-200 dark:bg-indigo-900/60';
+                            else if (cell.count > 1 && cell.count <= 3) c = 'bg-indigo-400 dark:bg-indigo-600/70';
+                            else if (cell.count > 3) c = 'bg-indigo-600 dark:bg-indigo-500';
+                            return (
+                                <div key={idx} className={`w-[13px] h-[13px] rounded-[3px] cursor-pointer transition-all hover:ring-1 hover:ring-indigo-400 ${c}`}
+                                    title={`${new Date(cell.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}: ${cell.count} steps`} />
+                            );
+                        })}
+                    </div>
+                </div>
+                <div className="flex items-center justify-between mt-4 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                    <span>90-day study frequency heatmap</span>
+                    <div className="flex items-center gap-1.5 ml-8">
+                        <span>Less</span>
+                        <div className="w-2.5 h-2.5 rounded-[3px] bg-slate-100 dark:bg-slate-800" />
+                        <div className="w-2.5 h-2.5 rounded-[3px] bg-indigo-200 dark:bg-indigo-900/60" />
+                        <div className="w-2.5 h-2.5 rounded-[3px] bg-indigo-400 dark:bg-indigo-600/70" />
+                        <div className="w-2.5 h-2.5 rounded-[3px] bg-indigo-600 dark:bg-indigo-500" />
+                        <span>More</span>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
+    if (loading) return (
+        <div className="flex flex-col items-center justify-center py-20 text-slate-500 dark:text-slate-400">
+            <div className="w-8 h-8 rounded-full border-2 border-indigo-600 border-t-transparent animate-spin mb-4" />
+            <span>Loading your learning dashboard...</span>
+        </div>
+    );
 
     return (
-        <div>
-            <h1 className="title-large">Welcome back, {user.firstName}!</h1>
-            <p style={{ color: 'var(--text-muted)', marginBottom: '32px' }}>
-                {user.role === 'STUDENT' 
-                    ? 'Here is your active personalized learning progress' 
-                    : 'Manage your course catalogs and course outlines.'
-                }
-            </p>
+        <div className="space-y-10 max-w-6xl mx-auto">
+            {/* Header */}
+            <div>
+                <h1 className="text-4xl font-black tracking-tight text-slate-900 dark:text-white">
+                    Welcome back, {user.firstName}!
+                </h1>
+                <p className="mt-2 text-base font-medium text-slate-500 dark:text-slate-400">
+                    {user.role === 'STUDENT'
+                        ? 'Track your daily study goals and see your courses.'
+                        : 'Create courses and see how your students are doing.'}
+                </p>
+            </div>
 
             {user.role === 'STUDENT' ? (
                 <>
-                    {/* Student KPI Cards */}
-                    <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', marginBottom: '32px' }}>
-                        <div className="card" style={{ flex: 1, minWidth: '220px', marginBottom: 0, display: 'flex', alignItems: 'center', gap: '16px' }}>
-                            <div style={{ backgroundColor: 'rgba(245, 158, 11, 0.15)', padding: '12px', borderRadius: '12px', color: 'var(--accent-amber)' }}>
-                                <Flame size={28} fill="var(--accent-amber)" />
+                    {/* KPI Cards + Heatmap */}
+                    <div className="flex flex-col lg:flex-row gap-6 items-stretch">
+                        <div className="flex-1 space-y-4">
+                            <div className="bg-[#eef2ff] dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 p-7 rounded-2xl flex items-center gap-5">
+                                <div className="w-14 h-14 bg-white dark:bg-slate-800 rounded-xl shadow-sm flex items-center justify-center text-indigo-600 dark:text-indigo-400 flex-shrink-0">
+                                    <Trophy size={26} />
+                                </div>
+                                <div>
+                                    <p className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest mb-1">Total Points</p>
+                                    <p className="text-3xl font-black text-slate-900 dark:text-white">
+                                        {user.xpPoints || 0}
+                                        <span className="text-xl font-bold text-slate-500 dark:text-slate-400 ml-1.5">XP</span>
+                                    </p>
+                                </div>
                             </div>
-                            <div>
-                                <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Current Streak</span>
-                                <h2 style={{ fontSize: '24px', fontWeight: 700 }}>{user.streakCount || 0} Days</h2>
+                            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-7 rounded-2xl flex items-center gap-5 shadow-sm">
+                                <div className="w-14 h-14 bg-slate-50 dark:bg-slate-800 rounded-xl flex items-center justify-center text-slate-500 dark:text-slate-400 border border-slate-100 dark:border-slate-700 flex-shrink-0">
+                                    <BookOpen size={26} />
+                                </div>
+                                <div>
+                                    <p className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-1">Courses</p>
+                                    <p className="text-3xl font-black text-slate-900 dark:text-white">
+                                        {enrolled.length}
+                                        <span className="text-xl font-bold text-slate-500 dark:text-slate-400 ml-1.5">Joined</span>
+                                    </p>
+                                </div>
                             </div>
                         </div>
-
-                        <div className="card" style={{ flex: 1, minWidth: '220px', marginBottom: 0, display: 'flex', alignItems: 'center', gap: '16px' }}>
-                            <div style={{ backgroundColor: 'rgba(99, 102, 241, 0.15)', padding: '12px', borderRadius: '12px', color: 'var(--accent-indigo)' }}>
-                                <Award size={28} />
-                            </div>
-                            <div>
-                                <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Total XP Gained</span>
-                                <h2 style={{ fontSize: '24px', fontWeight: 700 }}>{user.xpPoints || 0} XP</h2>
-                            </div>
-                        </div>
-
-                        <div className="card" style={{ flex: 1, minWidth: '220px', marginBottom: 0, display: 'flex', alignItems: 'center', gap: '16px' }}>
-                            <div style={{ backgroundColor: 'rgba(16, 185, 129, 0.15)', padding: '12px', borderRadius: '12px', color: 'var(--accent-emerald)' }}>
-                                <BookOpen size={28} />
-                            </div>
-                            <div>
-                                <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Active Enrollments</span>
-                                <h2 style={{ fontSize: '24px', fontWeight: 700 }}>{enrolled.length} Courses</h2>
-                            </div>
+                        <div className="w-full lg:w-fit flex-shrink-0">
+                            {renderHeatmap()}
                         </div>
                     </div>
 
-                    <h2 className="title-medium">Your Active Courses</h2>
-                    {enrolled.length === 0 ? (
-                        <div className="card" style={{ textAlign: 'center', padding: '40px 20px' }}>
-                            <BookOpen size={48} color="var(--text-muted)" style={{ marginBottom: '16px', opacity: 0.5 }} />
-                            <p style={{ color: 'var(--text-muted)', marginBottom: '20px' }}>You are not enrolled in any courses yet.</p>
-                            <button onClick={onGoToCatalog} className="btn btn-primary">Browse Catalog</button>
+                    {/* My Courses */}
+                    <section>
+                        <div className="flex items-end justify-between mb-6">
+                            <h2 className="text-2xl font-black text-slate-900 dark:text-white">My Courses</h2>
+                            {enrolled.length > 0 && (
+                                <button onClick={onGoToCatalog} className="text-sm font-bold text-indigo-600 dark:text-indigo-400 hover:underline">
+                                    Explore Courses
+                                </button>
+                            )}
                         </div>
-                    ) : (
-                        <div className="course-grid">
-                            {enrolled.map(course => (
-                                <div key={course.id} className="card" style={{ display: 'flex', flexDirection: 'column' }}>
-                                    <h3 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '8px' }}>{course.title}</h3>
-                                    <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginBottom: '20px', flex: 1 }}>
-                                        {course.description}
-                                    </p>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <span style={{ fontSize: '13px', color: 'var(--accent-emerald)', fontWeight: 600 }}>
-                                            Enrolled ({course.payment_status})
-                                        </span>
-                                        <button 
-                                            onClick={() => onSelectCourse(course)}
-                                            className="btn btn-secondary"
-                                        >
-                                            Enter Classroom
-                                        </button>
-                                    </div>
+                        {enrolled.length === 0 ? (
+                            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-10 text-center flex flex-col items-center">
+                                <div className="w-14 h-14 rounded-2xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center mb-4 text-slate-300 dark:text-slate-600">
+                                    <BookOpen size={28} />
                                 </div>
-                            ))}
-                        </div>
-                    )}
+                                <p className="text-slate-500 dark:text-slate-400 text-sm mb-5">You haven't joined any courses yet.</p>
+                                <button onClick={onGoToCatalog} className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-bold transition-colors shadow-sm">
+                                    Explore Courses
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {enrolled.map(course => (
+                                    <div key={course.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 flex flex-col justify-between hover:shadow-md transition-shadow">
+                                        <div>
+                                            <div className="flex justify-between items-start mb-3">
+                                                <h3 className="font-bold text-lg text-slate-900 dark:text-slate-100 leading-tight">{course.title}</h3>
+                                                <span className={`text-[10px] font-black px-2.5 py-1 rounded-lg ml-3 flex-shrink-0 ${
+                                                    course.payment_status === 'FREE'
+                                                        ? 'bg-emerald-100 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+                                                        : 'bg-blue-100 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400'
+                                                }`}>{course.payment_status}</span>
+                                            </div>
+                                            <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed">
+                                                {course.description || 'No description provided.'}
+                                            </p>
+                                        </div>
+                                        <div className="flex justify-between items-center pt-4 mt-4 border-t border-slate-100 dark:border-slate-800">
+                                            <span className="text-xs font-medium text-slate-400 dark:text-slate-500">Course Path</span>
+                                            <button onClick={() => onSelectCourse(course)}
+                                                className="flex items-center gap-1 text-sm font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors">
+                                                Open Class <ChevronRight size={15} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </section>
                 </>
             ) : (
-                /* Teacher View Dashboard */
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '32px', alignItems: 'start' }}>
-                    
-                    {/* Create Course Form */}
-                    <div className="card">
-                        <h2 className="title-medium" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <Plus size={20} color="var(--accent-indigo)" />
-                            <span>Create a Course</span>
+                /* Teacher Dashboard */
+                <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 items-start">
+                    <div className="lg:col-span-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
+                        <h2 className="text-base font-bold text-slate-800 dark:text-slate-200 mb-6 flex items-center gap-2">
+                            <Plus size={18} className="text-indigo-600 dark:text-indigo-400" />
+                            <span>Create a New Course</span>
                         </h2>
-
-                        {error && (
-                            <div style={{ 
-                                backgroundColor: 'rgba(244, 63, 94, 0.15)', 
-                                color: 'var(--accent-rose)', 
-                                padding: '10px', 
-                                borderRadius: '6px', 
-                                marginBottom: '14px',
-                                fontSize: '14px'
-                            }}>
-                                {error}
+                        {error && <div className="bg-rose-500/10 text-rose-500 border border-rose-500/20 p-3 rounded-xl text-xs mb-4">{error}</div>}
+                        {createSuccess && <div className="bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 p-3 rounded-xl text-xs mb-4">Course created successfully!</div>}
+                        <form onSubmit={handleCreateCourse} className="space-y-4">
+                            <div>
+                                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2">Course Name</label>
+                                <input type="text" className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:border-indigo-500"
+                                    placeholder="e.g. Easy English for Beginners" value={newCourseTitle} onChange={(e) => setNewCourseTitle(e.target.value)} required />
                             </div>
-                        )}
-
-                        {createSuccess && (
-                            <div style={{ 
-                                backgroundColor: 'rgba(16, 185, 129, 0.15)', 
-                                color: 'var(--accent-emerald)', 
-                                padding: '10px', 
-                                borderRadius: '6px', 
-                                marginBottom: '14px',
-                                fontSize: '14px'
-                            }}>
-                                Course created successfully!
+                            <div>
+                                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2">Description</label>
+                                <textarea className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:border-indigo-500"
+                                    rows="3" placeholder="What is this course about?..." value={newCourseDesc} onChange={(e) => setNewCourseDesc(e.target.value)} />
                             </div>
-                        )}
-
-                        <form onSubmit={handleCreateCourse}>
-                            <div className="form-group">
-                                <label className="form-label">Course Title</label>
-                                <input 
-                                    type="text" 
-                                    className="form-input" 
-                                    placeholder="e.g. Intro to Data Structures"
-                                    value={newCourseTitle}
-                                    onChange={(e) => setNewCourseTitle(e.target.value)}
-                                    required
-                                />
+                            <div>
+                                <label className="block text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2">Price (INR)</label>
+                                <input type="number" className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-900 dark:text-slate-100 focus:outline-none focus:border-indigo-500"
+                                    value={newCoursePrice} onChange={(e) => setNewCoursePrice(e.target.value)} min="0" required />
+                                <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-1 block">Enter 0 to make this course free.</span>
                             </div>
-
-                            <div className="form-group">
-                                <label className="form-label">Description</label>
-                                <textarea 
-                                    className="form-input" 
-                                    rows="3"
-                                    placeholder="Brief summary of syllabus..."
-                                    value={newCourseDesc}
-                                    onChange={(e) => setNewCourseDesc(e.target.value)}
-                                    style={{ resize: 'vertical' }}
-                                />
-                            </div>
-
-                            <div className="form-group">
-                                <label className="form-label">Price (INR)</label>
-                                <input 
-                                    type="number" 
-                                    className="form-input" 
-                                    value={newCoursePrice}
-                                    onChange={(e) => setNewCoursePrice(e.target.value)}
-                                    min="0"
-                                    required
-                                />
-                                <span style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
-                                    Set to 0 to make the course free.
-                                </span>
-                            </div>
-
-                            <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>
-                                Create Course Template
+                            <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl py-2.5 text-sm font-bold transition-colors shadow-sm shadow-indigo-500/20">
+                                Create Course
                             </button>
                         </form>
                     </div>
-
-                    {/* Teacher Course management */}
-                    <div>
-                        <h2 className="title-medium">Your Managed Courses</h2>
+                    <div className="lg:col-span-3 space-y-4">
+                        <h2 className="text-base font-bold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                            <BookOpen size={18} className="text-indigo-600 dark:text-indigo-400" />
+                            <span>Courses You Teach</span>
+                        </h2>
                         {enrolled.length === 0 ? (
-                            <div className="card" style={{ textAlign: 'center', padding: '40px' }}>
-                                <p style={{ color: 'var(--text-muted)' }}>You haven't created any courses yet.</p>
+                            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-8 text-center text-slate-500 dark:text-slate-400 text-sm">
+                                You haven't created any courses yet.
                             </div>
                         ) : (
-                            enrolled.map(course => (
-                                <div key={course.id} className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <div>
-                                        <h3 style={{ fontSize: '16px', fontWeight: 600 }}>{course.title}</h3>
-                                        <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginTop: '4px' }}>
-                                            Price: ₹{course.price} | Created: {new Date(course.created_at).toLocaleDateString()}
-                                        </p>
+                            <div className="grid grid-cols-1 gap-4">
+                                {enrolled.map(course => (
+                                    <div key={course.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 flex items-center justify-between hover:shadow-sm transition-shadow">
+                                        <div>
+                                            <h3 className="font-bold text-slate-900 dark:text-slate-100 text-base">{course.title}</h3>
+                                            <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
+                                                Price: ₹{course.price} &nbsp; &nbsp; Created: {new Date(course.created_at).toLocaleDateString()}
+                                            </p>
+                                        </div>
+                                        <button onClick={() => onSelectCourse(course)}
+                                            className="flex items-center gap-1 px-4 py-2 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-900/30 rounded-xl text-xs font-bold hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors ml-4 flex-shrink-0">
+                                            Edit Syllabus <ChevronRight size={14} />
+                                        </button>
                                     </div>
-                                    <button 
-                                        onClick={() => onSelectCourse(course)}
-                                        className="btn btn-secondary"
-                                    >
-                                        Edit Syllabus
-                                    </button>
-                                </div>
-                            ))
+                                ))}
+                            </div>
                         )}
                     </div>
                 </div>
