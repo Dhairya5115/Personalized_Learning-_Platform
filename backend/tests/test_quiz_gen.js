@@ -17,7 +17,7 @@ async function runTest() {
 
         const mockReq = {
             params: { topicId: topic.id },
-            user: { role: 'TEACHER' }
+            user: { id: 'admin-id', role: 'ADMIN' }
         };
 
         const mockRes = {

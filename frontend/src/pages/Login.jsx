@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { BookOpen, ArrowLeft, Mail, Lock, User, CheckCircle2 } from 'lucide-react';
+import { BookOpen, ArrowLeft, Mail, Lock, User, CheckCircle2, Eye, EyeOff } from 'lucide-react';
 import api from '../services/api';
 
 export default function Login() {
     const { login, register } = useAuth();
     const [isRegistering, setIsRegistering] = useState(false);
     const [isForgotPassword, setIsForgotPassword] = useState(false);
+
+    // Password visibility toggles
+    const [showPassword, setShowPassword] = useState(false);
+    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
     // Form inputs
     const [email, setEmail] = useState('');
@@ -166,13 +170,20 @@ export default function Login() {
                             <div className="relative">
                                 <Lock className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-400 dark:text-slate-500" size={16} />
                                 <input 
-                                    type="password" 
-                                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-850 dark:text-slate-105 focus:outline-none focus:border-indigo-500" 
+                                    type={showPassword ? 'text' : 'password'} 
+                                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl pl-10 pr-10 py-2.5 text-sm text-slate-850 dark:text-slate-105 focus:outline-none focus:border-indigo-500" 
                                     placeholder="••••••••"
                                     value={newPassword}
                                     onChange={(e) => setNewPassword(e.target.value)}
                                     required
                                 />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute right-3.5 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors p-1"
+                                >
+                                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                </button>
                             </div>
                         </div>
 
@@ -181,13 +192,20 @@ export default function Login() {
                             <div className="relative">
                                 <Lock className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-400 dark:text-slate-500" size={16} />
                                 <input 
-                                    type="password" 
-                                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-850 dark:text-slate-105 focus:outline-none focus:border-indigo-500" 
+                                    type={showConfirmPassword ? 'text' : 'password'} 
+                                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl pl-10 pr-10 py-2.5 text-sm text-slate-850 dark:text-slate-105 focus:outline-none focus:border-indigo-500" 
                                     placeholder="••••••••"
                                     value={confirmPassword}
                                     onChange={(e) => setConfirmPassword(e.target.value)}
                                     required
                                 />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                    className="absolute right-3.5 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors p-1"
+                                >
+                                    {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                </button>
                             </div>
                         </div>
 
@@ -282,6 +300,7 @@ export default function Login() {
                                     >
                                         <option value="STUDENT">Student (I want to learn)</option>
                                         <option value="TEACHER">Teacher (I want to teach)</option>
+                                        <option value="TA">Teaching Assistant (TA)</option>
                                     </select>
                                 </div>
                             </>
@@ -321,13 +340,21 @@ export default function Login() {
                             <div className="relative">
                                 <Lock className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-400 dark:text-slate-500" size={16} />
                                 <input 
-                                    type="password" 
-                                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-850 dark:text-slate-105 focus:outline-none focus:border-indigo-500" 
+                                    type={showPassword ? 'text' : 'password'} 
+                                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl pl-10 pr-10 py-2.5 text-sm text-slate-850 dark:text-slate-105 focus:outline-none focus:border-indigo-500" 
                                     placeholder="••••••••"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     required
                                 />
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    className="absolute right-3.5 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors p-1"
+                                    title={showPassword ? "Hide password" : "Show password"}
+                                >
+                                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                </button>
                             </div>
                         </div>
 

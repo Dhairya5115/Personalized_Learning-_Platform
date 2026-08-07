@@ -18,7 +18,7 @@ async function register(req, res) {
         return res.status(400).json({ error: 'All fields (email, password, firstName, lastName) are required' });
     }
 
-    const assignedRole = role && ['STUDENT', 'TEACHER', 'ADMIN'].includes(role.toUpperCase()) 
+    const assignedRole = role && ['STUDENT', 'TEACHER', 'TA'].includes(role.toUpperCase()) 
         ? role.toUpperCase() 
         : 'STUDENT';
 

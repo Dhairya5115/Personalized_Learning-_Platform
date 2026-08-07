@@ -1,16 +1,20 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { BookOpen, CreditCard, Search, ArrowRight } from 'lucide-react';
 
 export default function CoursesList({ onSelectCourse }) {
     const { user } = useAuth();
+    const navigate = useNavigate();
     const [courses, setCourses] = useState([]);
     const [enrolledMap, setEnrolledMap] = useState({});
     const [loading, setLoading] = useState(true);
     const [actionLoadingId, setActionLoadingId] = useState(null);
     const [error, setError] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
+
+    const [taAssignedMap, setTaAssignedMap] = useState({});
 
     useEffect(() => {
         loadCoursesData();
@@ -29,6 +33,13 @@ export default function CoursesList({ onSelectCourse }) {
                     map[c.id] = c.payment_status;
                 });
                 setEnrolledMap(map);
+            } else if (user.role === 'TA') {
+                const assigned = await api.getTaAssignedCourses();
+                const map = {};
+                (assigned || []).forEach(c => {
+                    map[c.id] = true;
+                });
+                setTaAssignedMap(map);
             }
         } catch (err) {
             setError('Failed to load courses. Please try again.');
@@ -48,8 +59,6 @@ export default function CoursesList({ onSelectCourse }) {
             if (!enrollRes.paymentRequired) {
                 if (window.showToast) {
                     window.showToast(enrollRes.message || 'Enrolled successfully!', 'success');
-                } else {
-                    alert(enrollRes.message);
                 }
                 loadCoursesData();
                 return;
@@ -78,16 +87,12 @@ export default function CoursesList({ onSelectCourse }) {
                         if (verifyRes.success) {
                             if (window.showToast) {
                                 window.showToast('Payment verified and course unlocked successfully!', 'success');
-                            } else {
-                                alert('Payment verified and course unlocked successfully!');
                             }
                             loadCoursesData();
                         }
                     } catch (verifyErr) {
                         if (window.showToast) {
                             window.showToast(`Payment verification failed: ${verifyErr.message}`, 'error');
-                        } else {
-                            alert(`Payment verification failed: ${verifyErr.message}`);
                         }
                     }
                 },
@@ -212,7 +217,10 @@ export default function CoursesList({ onSelectCourse }) {
                                     {user.role === 'STUDENT' ? (
                                         isEnrolled ? (
                                             <button 
-                                                onClick={() => onSelectCourse(course)}
+                                                onClick={() => {
+                                                    if (onSelectCourse) onSelectCourse(course);
+                                                    navigate(`/courses/${course.id}`);
+                                                }}
                                                 className="w-full group/btn flex items-center justify-center gap-2 py-3 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 rounded-lg text-sm font-bold hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors"
                                             >
                                                 <span>Go to Course</span>
@@ -221,7 +229,10 @@ export default function CoursesList({ onSelectCourse }) {
                                         ) : (
                                             <div className="flex gap-3">
                                                 <button 
-                                                    onClick={() => onSelectCourse(course)}
+                                                    onClick={() => {
+                                                        if (onSelectCourse) onSelectCourse(course);
+                                                        navigate(`/courses/${course.id}`);
+                                                    }}
                                                     className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200/50 dark:border-slate-700/50 rounded-lg text-sm font-bold flex items-center justify-center transition-colors"
                                                 >
                                                     <span>View Course</span>
@@ -236,10 +247,33 @@ export default function CoursesList({ onSelectCourse }) {
                                                 </button>
                                             </div>
                                         )
+                                    ) : user.role === 'TA' ? (
+                                        taAssignedMap[course.id] ? (
+                                            <button 
+                                                onClick={() => {
+                                                    if (onSelectCourse) onSelectCourse(course);
+                                                    navigate(`/courses/${course.id}`);
+                                                }}
+                                                className="w-full group/btn flex items-center justify-center gap-2 py-3 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 rounded-lg text-sm font-bold hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors"
+                                            >
+                                                <span>Open Course (TA View)</span>
+                                                <ArrowRight size={18} className="group-hover/btn:translate-x-1 transition-transform" />
+                                            </button>
+                                        ) : (
+                                            <button 
+                                                onClick={() => navigate('/ta-catalog')}
+                                                className="w-full py-2.5 bg-slate-100 dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                                            >
+                                                Apply as TA for this Course
+                                            </button>
+                                        )
                                     ) : (
                                         course.teacher_id === user.id ? (
                                             <button 
-                                                onClick={() => onSelectCourse(course)}
+                                                onClick={() => {
+                                                    if (onSelectCourse) onSelectCourse(course);
+                                                    navigate(`/courses/${course.id}`);
+                                                }}
                                                 className="w-full py-2.5 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200/50 dark:border-slate-700/50 rounded-xl text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-750 transition-colors"
                                             >
                                                 Edit Syllabus

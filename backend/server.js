@@ -11,6 +11,7 @@ const plannerRoutes = require('./routes/study_planner_routes');
 const reviewRoutes = require('./routes/spaced_repetition_routes');
 const aiRoutes = require('./routes/ai_routes');
 const analyticsRoutes = require('./routes/analytics_routes');
+const taRoutes = require('./routes/ta_routes');
 const cronScheduler = require('./services/cron_scheduler');
 
 const app = express();
@@ -35,6 +36,7 @@ app.use('/api/planner', plannerRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/ta', taRoutes);
 
 // Health Check route
 app.get('/health', (req, res) => {

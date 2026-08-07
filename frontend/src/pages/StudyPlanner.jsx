@@ -47,8 +47,6 @@ export default function StudyPlanner() {
             setHasPlan(true);
             if (window.showToast) {
                 window.showToast('Study planner calendar generated successfully!', 'success');
-            } else {
-                alert('Your study planner calendar has been generated successfully!');
             }
         } catch (err) {
             setError(err.message || 'Failed to generate planner');

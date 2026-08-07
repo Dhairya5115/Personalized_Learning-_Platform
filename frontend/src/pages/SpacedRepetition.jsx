@@ -38,8 +38,6 @@ export default function SpacedRepetition() {
             if (result.xpGained > 0) {
                 if (window.showToast) {
                     window.showToast(`Perfect Recall! Earned +${result.xpGained} XP!`, 'success');
-                } else {
-                    alert(`Perfect Recall! You earned +${result.xpGained} XP points!`);
                 }
             }
 
@@ -55,8 +53,6 @@ export default function SpacedRepetition() {
         } catch (err) {
             if (window.showToast) {
                 window.showToast('Failed to submit recall rating. Please try again.', 'error');
-            } else {
-                alert('Failed to submit recall rating. Please try again.');
             }
         } finally {
             setSubmittingRating(false);

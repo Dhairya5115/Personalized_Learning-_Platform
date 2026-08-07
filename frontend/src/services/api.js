@@ -183,7 +183,37 @@ const api = {
 
     // Analytics
     getAnalytics: () => apiCall('/analytics/report'),
-    getTeacherAnalytics: () => apiCall('/analytics/teacher')
+
+    // Teaching Assistant (TA) APIs
+    applyForTaCourse: (data) => apiCall('/ta/applications', {
+        method: 'POST',
+        body: typeof data === 'object' ? data : { courseId: data }
+    }),
+    getTaApplications: () => apiCall('/ta/applications/my'),
+    getTeacherPendingTaApplications: () => apiCall('/ta/applications/teacher'),
+    reviewTaApplication: (applicationId, status) => apiCall(`/ta/applications/${applicationId}/review`, {
+        method: 'PUT',
+        body: { status }
+    }),
+    getTeacherTaOverview: () => apiCall('/ta/teacher-overview'),
+    getTaDashboardStats: () => apiCall('/ta/dashboard-stats'),
+    getTaAssignedCourses: () => apiCall('/ta/my-courses'),
+    getTaAssignedCourseStudents: (courseId) => apiCall(`/ta/courses/${courseId}/students`),
+    getAvailableTasForStudent: () => apiCall('/ta/available-for-student'),
+    createTaDoubtRequest: (taId, courseId, subject, description) => apiCall('/ta/requests', {
+        method: 'POST',
+        body: { taId, courseId, subject, description }
+    }),
+    getStudentTaRequests: () => apiCall('/ta/requests/student'),
+    getTaIncomingRequests: () => apiCall('/ta/requests/ta'),
+    scheduleTaDoubtRequest: (requestId, meetingLink, scheduledAt) => apiCall(`/ta/requests/${requestId}/schedule`, {
+        method: 'PUT',
+        body: { meetingLink, scheduledAt }
+    }),
+    updateTaRequestStatus: (requestId, status) => apiCall(`/ta/requests/${requestId}/status`, {
+        method: 'PUT',
+        body: { status }
+    }),
 };
 
 export default api;

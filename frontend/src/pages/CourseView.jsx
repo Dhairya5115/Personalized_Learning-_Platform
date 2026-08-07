@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import { 
@@ -123,7 +124,7 @@ function TopicNode({ topic, index, isStudent, isEnrolled = true, onSelectQuiz, o
         try {
             const res = await api.updateQuestion(qId, questionData);
             if (res.success) {
-                alert('Question updated successfully!');
+                if (window.showToast) window.showToast('Question updated successfully!', 'success');
                 setQuizQuestions(prev => prev.map(item => item.id === qId ? res.question : item));
                 setEditingQuestionId(null);
             }
@@ -133,23 +134,14 @@ function TopicNode({ topic, index, isStudent, isEnrolled = true, onSelectQuiz, o
     };
 
     const handleDeleteQuestion = async (qId) => {
-        if (!window.confirm('Are you sure you want to delete this question?')) return;
         try {
             const res = await api.deleteQuestion(qId);
             if (res.success) {
-                if (window.showToast) {
-                    window.showToast('Question deleted successfully!', 'success');
-                } else {
-                    alert('Question deleted successfully!');
-                }
+                if (window.showToast) window.showToast('Question deleted successfully!', 'success');
                 setQuizQuestions(prev => prev.filter(item => item.id !== qId));
             }
         } catch (err) {
-            if (window.showToast) {
-                window.showToast(err.message || 'Failed to delete question', 'error');
-            } else {
-                alert(err.message || 'Failed to delete question');
-            }
+            if (window.showToast) window.showToast(err.message || 'Failed to delete question', 'error');
         }
     };
 
@@ -170,18 +162,14 @@ function TopicNode({ topic, index, isStudent, isEnrolled = true, onSelectQuiz, o
             }
         }
     };
-
     const handleSelectMaterial = async (material) => {
         if (!isEnrolled) {
             if (material.is_premium) {
                 if (window.showToast) {
                     window.showToast("Please enroll in the course to access premium materials.", "warning");
-                } else {
-                    alert("Please enroll in the course to access premium materials.");
                 }
                 return;
             }
-            // Free materials can be previewed
             onSelectMaterial(material);
             return;
         }
@@ -211,10 +199,8 @@ function TopicNode({ topic, index, isStudent, isEnrolled = true, onSelectQuiz, o
         setPurchaseLoading(true);
 
         try {
-            // 1. Create order
             const orderData = await api.createPaymentOrder({ materialId: checkoutMaterial.id });
 
-            // 2. Configure Razorpay options
             const options = {
                 key: orderData.key || import.meta.env.VITE_RAZORPAY_KEY_ID || 'rzp_test_dummy_id',
                 amount: orderData.amount,
@@ -233,11 +219,8 @@ function TopicNode({ topic, index, isStudent, isEnrolled = true, onSelectQuiz, o
                         if (verifyRes.success) {
                             if (window.showToast) {
                                 window.showToast('Material unlocked successfully!', 'success');
-                            } else {
-                                alert('Material unlocked successfully!');
                             }
                             setCheckoutMaterial(null);
-                            // Reload materials list to refresh lock status
                             loadQuizzesAndMaterials();
                             if (onReloadTopics) {
                                 onReloadTopics();
@@ -251,9 +234,7 @@ function TopicNode({ topic, index, isStudent, isEnrolled = true, onSelectQuiz, o
                     name: `${user?.firstName || 'Student'} ${user?.lastName || ''}`,
                     email: user?.email || 'student@tailorlearn.com'
                 },
-                theme: {
-                    color: '#6366f1'
-                }
+                theme: { color: '#6366f1' }
             };
 
             if (!window.Razorpay) {
@@ -296,7 +277,6 @@ function TopicNode({ topic, index, isStudent, isEnrolled = true, onSelectQuiz, o
         }
     }
 
-
     const handleAddMaterial = async (e) => {
         e.preventDefault();
         setMatError('');
@@ -316,8 +296,6 @@ function TopicNode({ topic, index, isStudent, isEnrolled = true, onSelectQuiz, o
             if (data.success) {
                 if (window.showToast) {
                     window.showToast('Study material published successfully!', 'success');
-                } else {
-                    alert('Study material published successfully!');
                 }
                 setMaterials(prev => [...prev, { ...data.material, is_bookmarked: false }]);
                 setMaterialTitle('');
@@ -396,8 +374,6 @@ function TopicNode({ topic, index, isStudent, isEnrolled = true, onSelectQuiz, o
                 setQuizzes(list);
                 if (window.showToast) {
                     window.showToast(`AI Quiz generated: "${data.quiz.title}" (${data.questionsCount} questions)`, 'success');
-                } else {
-                    alert(`Successfully generated AI Quiz "${data.quiz.title}" containing ${data.questionsCount} questions!`);
                 }
             }
         } catch (err) {
@@ -424,37 +400,9 @@ function TopicNode({ topic, index, isStudent, isEnrolled = true, onSelectQuiz, o
                 setQuizTitle('');
                 setQuizPassingScore(50);
                 setCreatingQuiz(false);
-                alert(`Quiz "${data.quiz.title}" created successfully! Now you can add questions to it.`);
             }
         } catch (err) {
             setQuizError(err.message || 'Failed to create quiz.');
-        }
-    };
-
-    const handleDeleteQuizConfirm = async (quizId) => {
-        try {
-            await api.deleteQuiz(quizId);
-            setQuizzes(prev => prev.filter(q => q.id !== quizId));
-            if (selectedQuizForQuestion === quizId) {
-                setSelectedQuizForQuestion(null);
-            }
-            if (window.showToast) {
-                window.showToast("Quiz deleted successfully", "success");
-            }
-        } catch (err) {
-            alert(err.message || 'Failed to delete quiz.');
-        }
-    };
-
-    const handleDeleteTopicConfirm = async () => {
-        try {
-            await api.deleteTopic(topic.id);
-            if (window.showToast) {
-                window.showToast("Topic deleted successfully", "success");
-            }
-            onReloadTopics();
-        } catch (err) {
-            alert(err.message || "Failed to delete topic");
         }
     };
 
@@ -479,7 +427,7 @@ function TopicNode({ topic, index, isStudent, isEnrolled = true, onSelectQuiz, o
         try {
             const data = await api.addQuestionToQuiz(quizId, questionData);
             if (data.success) {
-                alert('Question added successfully!');
+                if (window.showToast) window.showToast('Question added successfully!', 'success');
                 setQContent('');
                 setOptA('');
                 setOptB('');
@@ -496,7 +444,6 @@ function TopicNode({ topic, index, isStudent, isEnrolled = true, onSelectQuiz, o
 
     return (
         <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden transition-all duration-200">
-            {/* Header Accordion trigger */}
             <div 
                 onClick={() => setIsExpanded(!isExpanded)}
                 className="p-5 flex items-center justify-between cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-850 transition-colors select-none"
@@ -515,7 +462,6 @@ function TopicNode({ topic, index, isStudent, isEnrolled = true, onSelectQuiz, o
                     </div>
                 </div>
 
-                {/* Right badges */}
                 <div className="flex items-center gap-4 pl-4" onClick={e => e.stopPropagation()}>
                     {role === 'TEACHER' && (
                         <button 
@@ -535,11 +481,8 @@ function TopicNode({ topic, index, isStudent, isEnrolled = true, onSelectQuiz, o
                 </div>
             </div>
 
-            {/* Content Body */}
             {isExpanded && (
                 <div className="p-5 border-t border-slate-100 dark:border-slate-800/80 bg-slate-50/20 dark:bg-slate-950/10 space-y-6">
-                    
-                    {/* Concept Progress Summary */}
                     {isStudent && (
                         <div className="flex items-center justify-between text-xs text-slate-400 bg-white dark:bg-slate-900 border border-slate-200/50 dark:border-slate-800/50 rounded-xl p-3 shadow-xs">
                             <span className="font-medium">Course Completed</span>
@@ -555,7 +498,6 @@ function TopicNode({ topic, index, isStudent, isEnrolled = true, onSelectQuiz, o
                         </div>
                     )}
 
-                    {/* AI doubt solver quick access banner */}
                     {isStudent && (
                         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-indigo-50/20 dark:bg-indigo-950/10 border border-indigo-100/40 dark:border-indigo-900/20 p-4 rounded-2xl">
                             <div className="flex items-center gap-2.5 text-xs text-slate-500 dark:text-slate-400 text-left">
@@ -572,7 +514,6 @@ function TopicNode({ topic, index, isStudent, isEnrolled = true, onSelectQuiz, o
                         </div>
                     )}
 
-                    {/* Study Materials */}
                     <div className="space-y-3">
                         <div className="flex justify-between items-center">
                             <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">📚 Learning Materials</h4>
@@ -586,7 +527,6 @@ function TopicNode({ topic, index, isStudent, isEnrolled = true, onSelectQuiz, o
                             )}
                         </div>
 
-                        {/* Add material sub-form */}
                         {addingMaterial && (
                             <form onSubmit={handleAddMaterial} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-xl space-y-3">
                                 <h5 className="font-bold text-xs text-slate-700 dark:text-slate-300">Add New Material</h5>
@@ -644,7 +584,6 @@ function TopicNode({ topic, index, isStudent, isEnrolled = true, onSelectQuiz, o
                             </form>
                         )}
 
-                        {/* List materials */}
                         {loadingMaterials ? (
                             <span className="text-xs text-slate-400">Loading study materials...</span>
                         ) : materials.length === 0 ? (
@@ -689,21 +628,6 @@ function TopicNode({ topic, index, isStudent, isEnrolled = true, onSelectQuiz, o
                                             )}
                                         </div>
                                         <div className="flex items-center gap-3" onClick={e => e.stopPropagation()}>
-                                            {isStudent && (
-                                                material.is_bookmarked ? (
-                                                    <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10 px-2 py-0.5 rounded-lg border border-emerald-200/50 dark:border-emerald-500/10">
-                                                        SRS Deck
-                                                    </span>
-                                                ) : (
-                                                    <button 
-                                                        onClick={(e) => handleBookmark(e, material.id)} 
-                                                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-300 border border-slate-200/50 dark:border-slate-700/50 rounded-lg text-[10px] font-bold transition-colors" 
-                                                    >
-                                                        <Bookmark size={10} />
-                                                        <span>Spaced Review</span>
-                                                    </button>
-                                                )
-                                            )}
                                             {role === 'TEACHER' && (
                                                 <button 
                                                     onClick={(e) => { e.stopPropagation(); setDeleteMaterialTarget(material); }} 
@@ -719,7 +643,6 @@ function TopicNode({ topic, index, isStudent, isEnrolled = true, onSelectQuiz, o
                         )}
                     </div>
 
-                    {/* Adaptive Quizzes */}
                     {(isStudent || role === 'TEACHER') && (
                         <div className="space-y-3 pt-3 border-t border-slate-100 dark:border-slate-800/80">
                             <div className="flex justify-between items-center">
@@ -802,14 +725,10 @@ function TopicNode({ topic, index, isStudent, isEnrolled = true, onSelectQuiz, o
                                                         <button 
                                                             onClick={() => {
                                                                 if (!isEnrolled) {
-                                                                    if (window.showToast) {
-                                                                        window.showToast("Please enroll in the course to take practice quizzes.", "warning");
-                                                                    } else {
-                                                                        alert("Please enroll in the course to take practice quizzes.");
-                                                                    }
-                                                                } else {
-                                                                    onSelectQuiz(quiz);
+                                                                    if (window.showToast) window.showToast("Please enroll in the course to take practice quizzes.", "warning");
+                                                                    return;
                                                                 }
+                                                                onSelectQuiz(quiz);
                                                             }} 
                                                             className={`inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold shadow-sm transition-colors ${
                                                                 isEnrolled 
@@ -850,7 +769,6 @@ function TopicNode({ topic, index, isStudent, isEnrolled = true, onSelectQuiz, o
                                                 </div>
                                             </div>
 
-                                            {/* Add question inline subform */}
                                             {role === 'TEACHER' && selectedQuizForQuestion === quiz.id && (
                                                 <form onSubmit={(e) => handleAddQuestion(e, quiz.id)} className="border-t border-slate-100 dark:border-slate-800/80 pt-4 mt-1 space-y-3">
                                                     <h6 className="font-bold text-xs text-slate-750 dark:text-slate-350">Add Question Details</h6>
@@ -934,7 +852,6 @@ function TopicNode({ topic, index, isStudent, isEnrolled = true, onSelectQuiz, o
                                                 </form>
                                             )}
 
-                                            {/* View / Edit Questions list */}
                                             {role === 'TEACHER' && viewingQuestionsQuizId === quiz.id && (
                                                 <div className="border-t border-slate-100 dark:border-slate-800/80 pt-4 mt-1 space-y-4">
                                                     <div className="flex items-center justify-between">
@@ -1127,7 +1044,7 @@ function TopicNode({ topic, index, isStudent, isEnrolled = true, onSelectQuiz, o
                                         }
                                         onReloadTopics();
                                     } catch (err) {
-                                        alert(err.message || "Failed to delete topic");
+                                        if (window.showToast) window.showToast(err.message || "Failed to delete topic", "error");
                                     }
                                 }}
                                 className="flex-1 px-4 py-2 bg-rose-600 hover:bg-rose-550 text-white rounded-xl text-xs font-semibold shadow-sm transition-colors"
@@ -1173,8 +1090,6 @@ function TopicNode({ topic, index, isStudent, isEnrolled = true, onSelectQuiz, o
                                     } catch (err) {
                                         if (window.showToast) {
                                             window.showToast(err.message || 'Failed to delete material', 'error');
-                                        } else {
-                                            alert(err.message || 'Failed to delete material');
                                         }
                                     }
                                 }}
@@ -1220,7 +1135,7 @@ function TopicNode({ topic, index, isStudent, isEnrolled = true, onSelectQuiz, o
                                             window.showToast('Quiz deleted successfully!', 'success');
                                         }
                                     } catch (err) {
-                                        alert(err.message || 'Failed to delete quiz.');
+                                        if (window.showToast) window.showToast(err.message || 'Failed to delete quiz.', 'error');
                                     }
                                 }}
                                 className="flex-1 px-4 py-2 bg-rose-600 hover:bg-rose-550 text-white rounded-xl text-xs font-semibold shadow-sm transition-colors"
@@ -1301,30 +1216,55 @@ function TopicNode({ topic, index, isStudent, isEnrolled = true, onSelectQuiz, o
     );
 }
 
-export default function CourseView({ course, onBack, onSelectQuiz, onAskTutor }) {
+export default function CourseView({ course: courseProp, onBack: onBackProp, onSelectQuiz: onSelectQuizProp, onAskTutor: onAskTutorProp }) {
+    const { courseId: paramCourseId } = useParams();
+    const navigate = useNavigate();
     const { user } = useAuth();
+
+    const [fetchedCourse, setFetchedCourse] = useState(null);
+    const [courseLoading, setCourseLoading] = useState(!courseProp && !!paramCourseId);
+
+    const course = courseProp || fetchedCourse;
+    const onBack = onBackProp || (() => navigate('/courses'));
+    const onSelectQuiz = onSelectQuizProp || ((quiz) => navigate(`/quiz/${quiz.id}`));
+    const onAskTutor = onAskTutorProp || ((cId, cTitle, tId, tTitle) => navigate('/doubt-solver'));
+
     const [topics, setTopics] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isEnrolled, setIsEnrolled] = useState(user.role !== 'STUDENT');
     const [enrollLoading, setEnrollLoading] = useState(false);
 
-    // Topic forms
     const [topicTitle, setTopicTitle] = useState('');
     const [topicDesc, setTopicDesc] = useState('');
     const [topicOrder, setTopicOrder] = useState('1');
     const [error, setError] = useState('');
     const [success, setSuccess] = useState(false);
 
-    // Active material viewer
     const [activeMaterial, setActiveMaterial] = useState(null);
     const [showDeleteCourseModal, setShowDeleteCourseModal] = useState(false);
 
     useEffect(() => {
-        loadTopics();
-        if (user.role === 'STUDENT') {
-            checkEnrollment();
+        if (!courseProp && paramCourseId) {
+            setCourseLoading(true);
+            api.getCourseDetails(paramCourseId)
+                .then(res => setFetchedCourse(res))
+                .catch(err => {
+                    if (window.showToast) window.showToast(err.message || 'Failed to load course details', 'error');
+                })
+                .finally(() => setCourseLoading(false));
         }
-    }, [course.id]);
+    }, [courseProp, paramCourseId]);
+
+    useEffect(() => {
+        if (course?.id) {
+            loadTopics();
+            if (user.role === 'STUDENT') {
+                checkEnrollment();
+            } else if (user.role === 'TA') {
+                checkTaAssignment();
+            }
+        }
+    }, [course?.id]);
 
     const checkEnrollment = async () => {
         try {
@@ -1336,23 +1276,30 @@ export default function CourseView({ course, onBack, onSelectQuiz, onAskTutor })
         }
     };
 
+    const checkTaAssignment = async () => {
+        try {
+            const assigned = await api.getTaAssignedCourses();
+            const assignedIds = (assigned || []).map(c => c.id);
+            setIsEnrolled(assignedIds.includes(course.id));
+        } catch (err) {
+            console.error('Error checking TA course assignment:', err.message);
+            setIsEnrolled(false);
+        }
+    };
+
     const handleEnroll = async () => {
         setEnrollLoading(true);
         try {
             const enrollRes = await api.enrollInCourse(course.id);
             
-            // Case 1: Enrollment free or direct
             if (!enrollRes.paymentRequired) {
                 if (window.showToast) {
                     window.showToast(enrollRes.message || 'Enrolled successfully!', 'success');
-                } else {
-                    alert(enrollRes.message || 'Enrolled successfully!');
                 }
                 setIsEnrolled(true);
                 return;
             }
 
-            // Case 2: Checkout required via Razorpay
             const orderData = await api.createPaymentOrder(course.id);
 
             const options = {
@@ -1373,16 +1320,12 @@ export default function CourseView({ course, onBack, onSelectQuiz, onAskTutor })
                         if (verifyRes.success) {
                             if (window.showToast) {
                                 window.showToast('Payment verified and course unlocked successfully!', 'success');
-                            } else {
-                                alert('Payment verified and course unlocked successfully!');
                             }
                             setIsEnrolled(true);
                         }
                     } catch (verifyErr) {
                         if (window.showToast) {
                             window.showToast(`Payment verification failed: ${verifyErr.message}`, 'error');
-                        } else {
-                            alert(`Payment verification failed: ${verifyErr.message}`);
                         }
                     }
                 },
@@ -1390,9 +1333,7 @@ export default function CourseView({ course, onBack, onSelectQuiz, onAskTutor })
                     name: `${user.firstName || ''} ${user.lastName || ''}`,
                     email: user.email
                 },
-                theme: {
-                    color: '#6366f1'
-                }
+                theme: { color: '#6366f1' }
             };
 
             if (!window.Razorpay) {
@@ -1405,8 +1346,6 @@ export default function CourseView({ course, onBack, onSelectQuiz, onAskTutor })
         } catch (err) {
             if (window.showToast) {
                 window.showToast(err.message || 'Error occurred during enrollment.', 'error');
-            } else {
-                alert(err.message || 'Error occurred during enrollment.');
             }
         } finally {
             setEnrollLoading(false);
@@ -1426,8 +1365,6 @@ export default function CourseView({ course, onBack, onSelectQuiz, onAskTutor })
         }
     }
 
-
-
     const handleDeleteCourse = async () => {
         try {
             await api.deleteCourse(course.id);
@@ -1436,7 +1373,7 @@ export default function CourseView({ course, onBack, onSelectQuiz, onAskTutor })
             }
             onBack();
         } catch (err) {
-            alert(err.message || "Failed to delete course");
+            if (window.showToast) window.showToast(err.message || "Failed to delete course", "error");
         }
     };
 
@@ -1457,27 +1394,29 @@ export default function CourseView({ course, onBack, onSelectQuiz, onAskTutor })
                 topicDesc, 
                 parseInt(topicOrder)
             );
-            setSuccess(true);
-            setTopicTitle('');
-            setTopicDesc('');
-            loadTopics();
         } catch (err) {
             setError(err.message || 'Failed to create topic');
         }
     };
 
+    if (courseLoading || !course) {
+        return (
+            <div className="flex items-center justify-center min-h-[400px]">
+                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600"></div>
+            </div>
+        );
+    }
+
     return (
         <div className="space-y-6 max-w-5xl mx-auto">
-            {/* Back Button */}
             <button 
                 onClick={onBack} 
-                className="inline-flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-300 border border-slate-200/50 dark:border-slate-800/80 rounded-xl text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-850 transition-colors shadow-xs"
+                className="inline-flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-350 border border-slate-200/50 dark:border-slate-800/80 rounded-xl text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-850 transition-colors shadow-xs"
             >
-                <ArrowLeft size={14} />
+                <ArrowLeft size={16} />
                 <span>Back to Catalog</span>
             </button>
 
-            {/* Course details card */}
             <div className="bg-gradient-to-br from-indigo-50/60 via-white to-slate-50/60 dark:from-indigo-950/20 dark:via-slate-900 dark:to-slate-950 border border-slate-200/80 dark:border-slate-800/80 rounded-2xl p-6 md:p-8 shadow-sm flex flex-col md:flex-row md:items-start justify-between gap-6">
                 <div className="flex-1">
                     <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-tight">
@@ -1507,14 +1446,10 @@ export default function CourseView({ course, onBack, onSelectQuiz, onAskTutor })
                         <button
                             onClick={() => {
                                 if (!isEnrolled) {
-                                    if (window.showToast) {
-                                        window.showToast("Please enroll in the course to use the AI Tutor.", "warning");
-                                    } else {
-                                        alert("Please enroll in the course to use the AI Tutor.");
-                                    }
-                                } else {
-                                    onAskTutor && onAskTutor(course.id, course.title);
+                                    if (window.showToast) window.showToast("Please enroll in the course to use the AI Tutor.", "warning");
+                                    return;
                                 }
+                                onAskTutor(course.id, course.title);
                             }}
                             className={`inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-xs shrink-0 ${
                                 isEnrolled 

@@ -204,7 +204,8 @@ The output JSON object structure must be EXACTLY:
     }
   ]
 }
-Generate exactly 10 questions (4 EASY, 3 MEDIUM, 3 HARD). The difficulty field must be exactly "EASY", "MEDIUM", or "HARD".
+Generate 8 to 10 questions (balanced across EASY, MEDIUM, and HARD). The difficulty field must be exactly "EASY", "MEDIUM", or "HARD".
+Do NOT include trailing commas before closing brackets or braces.
 `;
 
 /**
@@ -214,9 +215,11 @@ async function generateAiQuiz(req, res) {
     const { topicId } = req.params;
 
     try {
-        // 1. Fetch topic details and course teacher
+        // 1. Fetch topic details, course details, and course teacher
         const topicRes = await db.query(`
-            SELECT t.title, t.description, c.teacher_id 
+            SELECT t.title AS topic_title, t.description AS topic_description, 
+                   c.title AS course_title, c.description AS course_description, 
+                   c.teacher_id 
             FROM topics t
             JOIN courses c ON t.course_id = c.id
             WHERE t.id = $1
@@ -258,12 +261,15 @@ async function generateAiQuiz(req, res) {
             requestModel = openrouterModel;
         }
 
-        const userPrompt = `Create a quiz for the topic: "${topic.title}". Description: "${topic.description || 'No description'}". 
+        const userPrompt = `Create a comprehensive quiz with 8 to 10 questions for the topic "${topic.topic_title}" under the course "${topic.course_title}".
+Course Description: "${topic.course_description || 'N/A'}"
+Topic Description: "${topic.topic_description || 'No description provided'}"
 Study materials available for this topic:
 ${materialsList || 'No specific materials listed.'}
-Ensure the questions are accurate and relevant to the topic. All questions must have exactly 4 choices (A, B, C, D) and specify the correct option ID.`;
 
-        console.log(`[AI Quiz Gen] Calling AI model ${requestModel} for topic: ${topic.title}`);
+Ensure the questions are accurate and directly relevant to both the overall course "${topic.course_title}" and the specific topic "${topic.topic_title}". All questions must have exactly 4 choices (A, B, C, D) and specify the correct option ID.`;
+
+        console.log(`[AI Quiz Gen] Calling AI model ${requestModel} for topic: ${topic.topic_title} (Course: ${topic.course_title})`);
         const response = await fetch(apiEndpoint, {
             method: 'POST',
             headers,
@@ -274,6 +280,7 @@ Ensure the questions are accurate and relevant to the topic. All questions must 
                     { role: 'user', content: userPrompt }
                 ],
                 temperature: 0.7,
+                max_tokens: 3500,
                 response_format: { type: 'json_object' }
             })
         });
@@ -290,16 +297,27 @@ Ensure the questions are accurate and relevant to the topic. All questions must 
         let cleanJsonStr = contentString.trim();
         if (cleanJsonStr.startsWith('```json')) {
             cleanJsonStr = cleanJsonStr.slice(7);
-        }
-        if (cleanJsonStr.startsWith('```')) {
+        } else if (cleanJsonStr.startsWith('```')) {
             cleanJsonStr = cleanJsonStr.slice(3);
         }
         if (cleanJsonStr.endsWith('```')) {
             cleanJsonStr = cleanJsonStr.slice(0, -3);
         }
         cleanJsonStr = cleanJsonStr.trim();
+        
+        // Remove trailing commas before closing brackets/braces (common invalid JSON pattern from LLMs)
+        cleanJsonStr = cleanJsonStr.replace(/,\s*([\]}])/g, '$1');
 
-        const quizData = JSON.parse(cleanJsonStr);
+        let quizData;
+        try {
+            quizData = JSON.parse(cleanJsonStr);
+        } catch (parseErr) {
+            console.error('[AI Quiz Gen JSON Parse Error] Raw content received:', contentString);
+            return res.status(500).json({ 
+                error: 'AI generated invalid JSON output format. Please try generating again.',
+                details: parseErr.message 
+            });
+        }
 
         // 4. Save Quiz and Questions to Database in a transaction
         const client = await db.pool.connect();
@@ -313,7 +331,7 @@ Ensure the questions are accurate and relevant to the topic. All questions must 
             `;
             const quizRes = await client.query(quizInsertQuery, [
                 topicId,
-                quizData.title || `${topic.title} AI Quiz`,
+                quizData.title || `${topic.topic_title} (${topic.course_title}) AI Quiz`,
                 quizData.passingScore || 60
             ]);
             const createdQuiz = quizRes.rows[0];

@@ -56,13 +56,15 @@ export default function StudentProgressTracker() {
         return matchesSearch && matchesCourse;
     });
 
-    // KPI Metrics calculation based on filtered list
-    const totalStudents = filteredStudents.length;
-    const avgProgress = totalStudents > 0 
-        ? Math.round(filteredStudents.reduce((sum, s) => sum + s.overallProgress, 0) / totalStudents)
+    // Deduplicate count by distinct student email addresses
+    const uniqueStudentEmails = Array.from(new Set(filteredStudents.map(s => s.email.toLowerCase())));
+    const totalStudents = uniqueStudentEmails.length;
+
+    const avgProgress = filteredStudents.length > 0 
+        ? Math.round(filteredStudents.reduce((sum, s) => sum + s.overallProgress, 0) / filteredStudents.length)
         : 0;
-    const avgSkill = totalStudents > 0 
-        ? Math.round(filteredStudents.reduce((sum, s) => sum + s.averageSkillScore, 0) / totalStudents)
+    const avgSkill = filteredStudents.length > 0 
+        ? Math.round(filteredStudents.reduce((sum, s) => sum + s.averageSkillScore, 0) / filteredStudents.length)
         : 0;
 
     if (loading) {

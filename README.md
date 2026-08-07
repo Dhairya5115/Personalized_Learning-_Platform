@@ -32,7 +32,13 @@ A comprehensive, full-stack **Personalized Learning Platform** designed to offer
 
 ## 🌟 Core Features
 
-- 👤 **User Accounts & Authentication**: Standard sign-up and log-in mechanisms secured via JSON Web Tokens (JWT) and Bcrypt password hashing.
+- 👤 **User Accounts & Roles**: User accounts are secured via JWT & Bcrypt with role-based access control supporting `STUDENT`, `TEACHER`, and `TA` (Teaching Assistant) roles.
+- 🤝 **Teaching Assistant (TA) Workflow**:
+  - **Course Applications**: TAs can apply to courses with motivation cover notes and qualifications.
+  - **Teacher Reviews**: Lead teachers inspect and approve/reject TA applications.
+  - **Course-Scoped Access**: Approved TAs get limited read access to student names and topic skill scores for their assigned courses.
+  - **Human Doubt Solver**: Students can toggle between the AI Doubt Solver and Human TA modes, requesting 1-on-1 virtual sessions with assigned TAs.
+  - **iCalendar (.ics) Invites**: When a TA schedules a virtual session, an automated `.ics` calendar invitation is attached to the student's confirmation email.
 - 🎮 **Gamification & Progress Tracking**:
   - **XP Point Rewards**: Students gain experience points (XP) by participating in quizzes.
   - **Daily Streak Tracking**: Automatically tracks and maintains consecutive active days, warning users when a streak is about to lapse.
@@ -118,6 +124,12 @@ $$\text{Priority Score} = 0.40 \times \text{Exam Urgency} + 0.35 \times \text{We
 
 The top 2 highest priority topics are assigned to each day's study blocks based on the student's available daily hours.
 
+### 4. Teaching Assistant (TA) & Human Doubt Solver Workflow
+1. **Application & Assignment**: Registered `TA` users browse available courses and submit applications. The teacher owning the course reviews pending applications and approves/rejects them. Approval creates an assignment record in `course_tas`.
+2. **Guarded Student Data Access**: TAs gain read-only access to enrolled students and their topic skill mastery scores strictly for assigned courses (`verifyTaAssignedToCourse`).
+3. **Student Human-TA Request Flow**: Students toggle to "Human TA" on the doubt solving screen to see TAs assigned to their enrolled courses and submit doubt requests.
+4. **Meeting Scheduling & .ics Calendar Invites**: TAs schedule virtual sessions (Google Meet/Zoom URL + date/time). The backend generates an iCalendar (`.ics`) file via the `ics` package and emails it as an attachment to the student.
+
 ---
 
 ## 🛠️ Tech Stack
@@ -193,6 +205,9 @@ Here is a summary of the core database tables defined in [database/schema.sql](f
 | `achievements` | Badges system configs (XP limits, streak values) | *Primary key: UUID* |
 | `user_achievements` | Unlocked achievements mapping | `student_id`, `achievement_id` |
 | `notifications` | Feeds internal user notification panels | `user_id` $\rightarrow$ `users(id)` |
+| `ta_applications` | Manages TA application submissions and teacher approvals | `ta_id`, `course_id`, `reviewed_by` |
+| `course_tas` | Links approved TAs to their assigned courses | `ta_id`, `course_id` |
+| `ta_requests` | Tracks student doubt requests, virtual meeting links, and schedules | `student_id`, `ta_id`, `course_id` |
 
 ---
 

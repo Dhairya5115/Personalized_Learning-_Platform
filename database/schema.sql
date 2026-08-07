@@ -1,5 +1,5 @@
 -- Enums for Roles, Difficulties, and Quality Ratings
-CREATE TYPE user_role AS ENUM ('STUDENT', 'TEACHER', 'ADMIN');
+CREATE TYPE user_role AS ENUM ('STUDENT', 'TEACHER', 'ADMIN', 'TA');
 CREATE TYPE question_difficulty AS ENUM ('EASY', 'MEDIUM', 'HARD');
 
 -- 1. Users Table
@@ -200,3 +200,55 @@ CREATE INDEX idx_questions_quiz_difficulty ON questions(quiz_id, difficulty);
 CREATE INDEX idx_quiz_attempts_student ON quiz_attempts(student_id);
 CREATE INDEX idx_payments_order_id ON payments(razorpay_order_id);
 CREATE INDEX idx_ai_cache_query ON ai_query_cache(query_text);
+
+-- 18. TA Applications Table
+CREATE TABLE ta_applications (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    ta_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    course_id UUID REFERENCES courses(id) ON DELETE CASCADE,
+    full_name VARCHAR(255),
+    contact VARCHAR(50),
+    qualification VARCHAR(255),
+    motivation TEXT,
+    experience TEXT,
+    resume_link TEXT,
+    status VARCHAR(20) DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED')),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    reviewed_at TIMESTAMP WITH TIME ZONE,
+    reviewed_by UUID REFERENCES users(id) ON DELETE SET NULL
+);
+
+-- Partial unique index to enforce single active (PENDING or APPROVED) application per TA per course
+CREATE UNIQUE INDEX idx_ta_applications_active ON ta_applications(ta_id, course_id) WHERE status IN ('PENDING', 'APPROVED');
+
+-- 19. Course TAs Link Table
+CREATE TABLE course_tas (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    ta_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    course_id UUID REFERENCES courses(id) ON DELETE CASCADE,
+    assigned_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(ta_id, course_id)
+);
+
+-- 20. TA Doubt Requests Table
+CREATE TABLE ta_requests (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    student_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    ta_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    course_id UUID REFERENCES courses(id) ON DELETE CASCADE,
+    subject TEXT NOT NULL,
+    description TEXT NOT NULL,
+    status VARCHAR(20) DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'SCHEDULED', 'RESOLVED', 'DECLINED')),
+    meeting_link TEXT,
+    scheduled_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Indexes for TA tables
+CREATE INDEX idx_ta_applications_ta ON ta_applications(ta_id);
+CREATE INDEX idx_ta_applications_course ON ta_applications(course_id);
+CREATE INDEX idx_course_tas_ta ON course_tas(ta_id);
+CREATE INDEX idx_course_tas_course ON course_tas(course_id);
+CREATE INDEX idx_ta_requests_ta ON ta_requests(ta_id);
+CREATE INDEX idx_ta_requests_student ON ta_requests(student_id);
+CREATE INDEX idx_ta_requests_course ON ta_requests(course_id);

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import Sidebar from './components/Sidebar';
@@ -13,14 +14,18 @@ import Analytics from './pages/Analytics';
 import QuizView from './pages/QuizView';
 import Loader from './components/Loader';
 import StudentProgressTracker from './pages/StudentProgressTracker';
+import { 
+    TaCourseCatalog, 
+    TaApplications, 
+    TaAssignedStudents, 
+    TaPendingRequests, 
+    TeacherTaReview 
+} from './pages/TaPages';
 
 function MainAppContent() {
     const { user, loading } = useAuth();
     const [loaderFinished, setLoaderFinished] = useState(false);
-    const [currentTab, setCurrentTab] = useState('dashboard');
-    const [selectedCourse, setSelectedCourse] = useState(null);
-    const [selectedQuiz, setSelectedQuiz] = useState(null);
-    const [doubtSolverContext, setDoubtSolverContext] = useState(null);
+    const navigate = useNavigate();
 
     useEffect(() => {
         if (user) {
@@ -38,85 +43,28 @@ function MainAppContent() {
         return <Login />;
     }
 
-    const handleSelectCourse = (course) => {
-        setSelectedCourse(course);
-        setCurrentTab('courseDetail');
-    };
-
-    const handleSelectQuiz = (quiz) => {
-        setSelectedQuiz(quiz);
-        setCurrentTab('quiz');
-    };
-
-    const handleBackToCourses = () => {
-        setSelectedCourse(null);
-        setCurrentTab('courses');
-    };
-
-    const renderActiveTab = () => {
-        switch (currentTab) {
-            case 'dashboard':
-                return (
-                    <Dashboard 
-                        onSelectCourse={handleSelectCourse} 
-                        onGoToCatalog={() => setCurrentTab('courses')} 
-                    />
-                );
-            case 'courses':
-                return (
-                    <CoursesList 
-                        onSelectCourse={handleSelectCourse} 
-                    />
-                );
-            case 'courseDetail':
-                return (
-                    <CourseView 
-                        course={selectedCourse} 
-                        onBack={handleBackToCourses} 
-                        onSelectQuiz={handleSelectQuiz}
-                        onAskTutor={(courseId, courseTitle, topicId = null, topicTitle = null) => {
-                            setDoubtSolverContext({ courseId, courseTitle, topicId, topicTitle });
-                            setCurrentTab('doubtSolver');
-                        }}
-                    />
-                );
-            case 'planner':
-                return <StudyPlanner />;
-            case 'doubtSolver':
-                return (
-                    <DoubtSolver 
-                        context={doubtSolverContext} 
-                        onClearContext={() => setDoubtSolverContext(null)} 
-                    />
-                );
-            case 'leaderboard':
-                return <Leaderboard />;
-            case 'analytics':
-                return <Analytics />;
-            case 'studentTracker':
-                return <StudentProgressTracker />;
-            case 'quiz':
-                return (
-                    <QuizView 
-                        quiz={selectedQuiz} 
-                        onBack={() => setCurrentTab('courseDetail')} 
-                    />
-                );
-            default:
-                return <Dashboard onSelectCourse={handleSelectCourse} />;
-        }
-    };
-
     return (
         <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
-            <Sidebar currentTab={currentTab} setCurrentTab={(tab) => {
-                if (tab === 'doubtSolver') {
-                    setDoubtSolverContext(null);
-                }
-                setCurrentTab(tab);
-            }} />
+            <Sidebar />
             <main className="flex-1 p-6 md:p-10 overflow-y-auto max-w-7xl mx-auto w-full">
-                {renderActiveTab()}
+                <Routes>
+                    <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                    <Route path="/dashboard" element={<Dashboard />} />
+                    <Route path="/courses" element={<CoursesList />} />
+                    <Route path="/courses/:courseId" element={<CourseView />} />
+                    <Route path="/quiz/:quizId" element={<QuizView />} />
+                    <Route path="/planner" element={<StudyPlanner />} />
+                    <Route path="/doubt-solver" element={<DoubtSolver />} />
+                    <Route path="/leaderboard" element={<Leaderboard />} />
+                    <Route path="/analytics" element={<Analytics />} />
+                    <Route path="/student-tracker" element={<StudentProgressTracker />} />
+                    <Route path="/ta-catalog" element={<TaCourseCatalog />} />
+                    <Route path="/ta-applications" element={<TaApplications />} />
+                    <Route path="/ta-assigned" element={<TaAssignedStudents />} />
+                    <Route path="/ta-requests" element={<TaPendingRequests />} />
+                    <Route path="/teacher-ta-reviews" element={<TeacherTaReview />} />
+                    <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                </Routes>
             </main>
         </div>
     );
