@@ -44,7 +44,7 @@ flowchart TD
     Teacher_Actor -->|"2: Opens pending applications"| Tch_UI
     Tch_UI -->|"2.1: GET /api/ta/teacher/applications"| TACtrl
     TACtrl -->|"2.2: SELECT apps JOIN courses"| DB_Apps
-    DB_Courses --- DB_Apps
+    DB_Courses -.->|"Course Metadata"| DB_Apps
     TACtrl -.->|"2.3: 200 OK [applications]"| Tch_UI
 
     %% Message Flows: Approval
@@ -123,25 +123,25 @@ flowchart TD
     %% Transactional Flow inside QuizEngine
     QEng -->|"2.4: BEGIN transaction"| DB_Attempts
     QEng -->|"2.5: SELECT questions WHERE id = ANY($1)"| DB_Questions
-    Note over QEng: Evaluates correct answers in-memory,<br/>calculates score percentage
-    QEng -->|"2.6: INSERT INTO quiz_attempts (score)"| DB_Attempts
-    QEng -->|"2.7: Multi-row batch INSERT responses"| DB_Responses
+    QEng -->|"2.6: Evaluates answers in-memory & calculates score %"| QEng
+    QEng -->|"2.7: INSERT INTO quiz_attempts (score)"| DB_Attempts
+    QEng -->|"2.8: Multi-row batch INSERT responses"| DB_Responses
 
     %% Progress Recalculation Flow
-    QEng -->|"2.8: recalculateProgress(studentId, topicId)"| PEng
-    PEng -->|"2.9: CTE atomic count & upsert completion_percentage"| DB_Progress
-    DB_Progress -.->|"2.10: Return updated percentage"| PEng
-    PEng -.->|"2.11: Completion percentage"| QEng
+    QEng -->|"2.9: recalculateProgress(studentId, topicId)"| PEng
+    PEng -->|"2.10: CTE atomic count & upsert completion_percentage"| DB_Progress
+    DB_Progress -.->|"2.11: Return updated percentage"| PEng
+    PEng -.->|"2.12: Completion percentage"| QEng
 
     %% Gamification & Leaderboard Updates
-    QEng -->|"2.12: SELECT current xp, streak, last_active"| DB_Users
-    QEng -->|"2.13: UPDATE xp (+10 base + 2*correct) & streak"| DB_Users
-    QEng -->|"2.14: Check & INSERT unlocked badges"| DB_Badges
+    QEng -->|"2.13: SELECT current xp, streak, last_active"| DB_Users
+    QEng -->|"2.14: UPDATE xp (+10 base + 2*correct) & streak"| DB_Users
+    QEng -->|"2.15: Check & INSERT unlocked badges"| DB_Badges
 
     %% Average Recalculation
-    QEng -->|"2.15: SELECT ROUND(AVG(score)) AS average_score"| DB_Attempts
-    QEng -->|"2.16: COMMIT transaction"| DB_Attempts
-    QEng -.->|"2.17: Return results payload"| QCtrl
-    QCtrl -.->|"2.18: 200 OK {results: score, runningAverageScore, xp}"| Student_UI
-    Student_UI -.->|"2.19: Displays score card, running average & badges"| Student_Actor
+    QEng -->|"2.16: SELECT ROUND(AVG(score)) AS average_score"| DB_Attempts
+    QEng -->|"2.17: COMMIT transaction"| DB_Attempts
+    QEng -.->|"2.18: Return results payload"| QCtrl
+    QCtrl -.->|"2.19: 200 OK {results: score, runningAverageScore, xp}"| Student_UI
+    Student_UI -.->|"2.20: Displays score card, running average & badges"| Student_Actor
 ```

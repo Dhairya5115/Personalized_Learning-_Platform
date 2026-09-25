@@ -90,16 +90,21 @@ flowchart TB
     end
 
     %% 1.0 Auth Flows
-    EE_Student & EE_Teacher & EE_TA -->|"Credentials (email, password, role)"| P1
+    EE_Student -->|"Credentials (email, password, role)"| P1
+    EE_Teacher -->|"Credentials (email, password, role)"| P1
+    EE_TA -->|"Credentials (email, password, role)"| P1
     P1 -->|"Check credentials / Save user"| DS_Users
     DS_Users -->|"User profile & hashed password"| P1
-    P1 -->|"Tab-isolated JWT & session profile"| EE_Student & EE_Teacher & EE_TA
+    P1 -->|"Tab-isolated JWT & session profile"| EE_Student
+    P1 -->|"Tab-isolated JWT & session profile"| EE_Teacher
+    P1 -->|"Tab-isolated JWT & session profile"| EE_TA
 
     %% 2.0 Course Management Flows
     EE_Teacher -->|"Course details, topics, PDFs, video URLs"| P2
     P2 -->|"Write course curriculum"| DS_Courses
     DS_Courses -->|"Read course catalogue"| P2
-    P2 -->|"Course list, topics & study materials"| EE_Student & EE_TA
+    P2 -->|"Course list, topics & study materials"| EE_Student
+    P2 -->|"Course list, topics & study materials"| EE_TA
 
     %% 7.0 Payment & Enrollment Flows
     EE_Student -->|"Course checkout request"| P7
@@ -147,7 +152,8 @@ flowchart TB
     EE_TA -->|"Schedule meeting link & datetime"| P5
     P5 -->|"Update status=SCHEDULED & meeting_link"| DS_Doubts
     P5 -->|"Send calendar email (.ics)"| EE_Email
-    EE_TA & EE_Student -->|"Mark doubt RESOLVED"| P5
+    EE_TA -->|"Mark doubt RESOLVED"| P5
+    EE_Student -->|"Mark doubt RESOLVED"| P5
     P5 -->|"Update status=RESOLVED (removes link)"| DS_Doubts
 
     %% 6.0 Progress, XP & Analytics Flows
@@ -157,6 +163,8 @@ flowchart TB
     P6 -->|"Update streak & XP points (+10 base, +2 correct)"| DS_Users
     P6 -->|"Running average score & progress stats"| EE_Student
 
-    DS_Enrollments & DS_Progress & DS_Attempts -->|"Aggregated student data"| P2
+    DS_Enrollments -->|"Enrolled student data"| P2
+    DS_Progress -->|"Student progress data"| P2
+    DS_Attempts -->|"Quiz score data"| P2
     P2 -->|"Student Progress Tracker (deduped by email)"| EE_Teacher
 ```
