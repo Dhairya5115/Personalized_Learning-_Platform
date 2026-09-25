@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 import { Award, Flame, Target, CheckCircle, BarChart2, TrendingUp, Users, BookOpen, AlertTriangle, ChevronRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { calculateAverageScore } from '../utils/scoreUtils';
 
 export default function Analytics() {
     const { user } = useAuth();
@@ -32,17 +33,17 @@ export default function Analytics() {
 
     if (loading) {
         return (
-            <div className="flex flex-col items-center justify-center py-20 text-slate-500 dark:text-slate-400">
-                <div className="w-8 h-8 rounded-full border-2 border-indigo-600 border-t-transparent animate-spin mb-4" />
-                <span>Compiling performance analytics reports...</span>
+            <div className="flex flex-col items-center justify-center py-20 text-[#52716c]">
+                <div className="w-8 h-8 rounded-full border-3 border-[#00262b] border-t-transparent animate-spin mb-4" />
+                <span className="font-semibold text-sm">Compiling performance analytics reports...</span>
             </div>
         );
     }
 
     if (!data) {
         return (
-            <div className="text-center py-12 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6">
-                <p className="text-slate-500 dark:text-slate-400">No learning analytics records logged yet.</p>
+            <div className="text-center py-12 bg-[#ffffff] border border-[#edebe3] rounded-2xl p-6 shadow-sm">
+                <p className="text-[#52716c]">No learning analytics records logged yet.</p>
             </div>
         );
     }
@@ -220,9 +221,9 @@ export default function Analytics() {
     const { summary, quizTrends } = data;
 
     const renderQuizTrendsChart = () => {
-        if (quizTrends.length === 0) {
+        if (!quizTrends || quizTrends.length === 0) {
             return (
-                <p className="text-xs text-slate-400 dark:text-slate-500 py-8 text-center italic">
+                <p className="text-xs text-[#52716c] py-8 text-center italic">
                     Complete your first quiz to compile performance trends.
                 </p>
             );
@@ -248,21 +249,21 @@ export default function Analytics() {
                         const y = height - padding - (val * (height - padding * 2)) / 100;
                         return (
                             <g key={val}>
-                                <line x1={padding} y1={y} x2={width - padding} y2={y} className="stroke-slate-100 dark:stroke-slate-800/60" strokeDasharray="3" />
-                                <text x={padding - 8} y={y + 4} className="fill-slate-400 text-[10px]" textAnchor="end">{val}%</text>
+                                <line x1={padding} y1={y} x2={width - padding} y2={y} className="stroke-[#edebe3] dark:stroke-[#004d57]" strokeDasharray="3" />
+                                <text x={padding - 8} y={y + 4} className="fill-[#52716c] dark:fill-[#a5b6b1] text-[10px]" textAnchor="end">{val}%</text>
                             </g>
                         );
                     })}
 
                     {/* Trend Line */}
-                    <path d={linePath} fill="none" className="stroke-indigo-500" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d={linePath} fill="none" className="stroke-[#00262b] dark:stroke-[#04c5e7]" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
 
                     {/* Dots */}
                     {points.map((p, idx) => (
                         <g key={idx}>
-                            <circle cx={p.x} cy={p.y} r="5" className="fill-white dark:fill-slate-900 stroke-indigo-500" strokeWidth="3" />
-                            <text x={p.x} y={p.y - 12} className="fill-slate-800 dark:fill-slate-200 text-[9px] font-bold" textAnchor="middle">{p.score}%</text>
-                            <text x={p.x} y={height - 10} className="fill-slate-400 dark:fill-slate-500 text-[9px]" textAnchor="middle">{p.label}</text>
+                            <circle cx={p.x} cy={p.y} r="5" className="fill-[#ffffff] dark:fill-[#00262b] stroke-[#04c5e7]" strokeWidth="3" />
+                            <text x={p.x} y={p.y - 12} data-chart-score="true" className="chart-score fill-[#00262b] dark:fill-[#f9f8f6] text-[9px] font-bold" textAnchor="middle">{p.score}%</text>
+                            <text x={p.x} y={height - 10} className="fill-[#52716c] dark:fill-[#a5b6b1] text-[9px]" textAnchor="middle">{p.label}</text>
                         </g>
                     ))}
                 </svg>
@@ -270,67 +271,65 @@ export default function Analytics() {
         );
     };
 
-
-
     return (
         <div className="space-y-8 max-w-6xl mx-auto">
             {/* Header */}
             <div>
-                <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white">
+                <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-[#00262b]">
                     My Learning Progress
                 </h1>
-                <p className="mt-2 text-base text-slate-500 dark:text-slate-400">
+                <p className="mt-2 text-sm font-medium text-[#52716c]">
                     See your quiz scores, total points, and daily streak.
                 </p>
             </div>
 
             {/* KPI Cards Row */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-sm flex items-center gap-4">
-                    <div className="bg-indigo-50 dark:bg-indigo-500/10 p-3 rounded-xl text-indigo-600 dark:text-indigo-400">
+                <div className="bg-[#ffffff] border border-[#edebe3] rounded-2xl p-5 shadow-sm flex items-center gap-4">
+                    <div className="bg-[#00262b] p-3 rounded-2xl text-[#04c5e7]">
                         <Award size={22} />
                     </div>
                     <div>
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Total Points</span>
-                        <h3 className="text-xl font-bold text-slate-850 dark:text-slate-100 mt-0.5">{summary.xpPoints} XP</h3>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#52716c]">Total Points</span>
+                        <h3 className="text-xl font-extrabold text-[#00262b] mt-0.5">{summary.xpPoints} XP</h3>
                     </div>
                 </div>
 
-                <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-sm flex items-center gap-4">
-                    <div className="bg-amber-50 dark:bg-amber-500/10 p-3 rounded-xl text-amber-500">
+                <div className="bg-[#ffffff] border border-[#edebe3] rounded-2xl p-5 shadow-sm flex items-center gap-4">
+                    <div className="bg-[#f3f1ed] border border-[#e1ddd1] p-3 rounded-2xl text-[#d64000]">
                         <Flame size={22} fill="currentColor" />
                     </div>
                     <div>
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Daily Streak</span>
-                        <h3 className="text-xl font-bold text-slate-850 dark:text-slate-100 mt-0.5">{summary.streakCount} Days</h3>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#52716c]">Daily Streak</span>
+                        <h3 className="text-xl font-extrabold text-[#00262b] mt-0.5">{summary.streakCount} Days</h3>
                     </div>
                 </div>
 
-                <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-sm flex items-center gap-4">
-                    <div className="bg-emerald-50 dark:bg-emerald-500/10 p-3 rounded-xl text-emerald-600 dark:text-emerald-400">
+                <div className="bg-[#ffffff] border border-[#edebe3] rounded-2xl p-5 shadow-sm flex items-center gap-4">
+                    <div className="bg-[#f9f8f6] border border-[#e1ddd1] p-3 rounded-2xl text-[#00262b]">
                         <Target size={22} />
                     </div>
                     <div>
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Average Quiz Score</span>
-                        <h3 className="text-xl font-bold text-slate-855 dark:text-slate-100 mt-0.5">{summary.averageScore}%</h3>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#52716c]">Average Quiz Score</span>
+                        <h3 className="text-xl font-extrabold text-[#00262b] mt-0.5">{summary.averageScore}%</h3>
                     </div>
                 </div>
 
-                <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-5 shadow-sm flex items-center gap-4">
-                    <div className="bg-rose-50 dark:bg-rose-500/10 p-3 rounded-xl text-rose-500">
+                <div className="bg-[#ffffff] border border-[#edebe3] rounded-2xl p-5 shadow-sm flex items-center gap-4">
+                    <div className="bg-[#00262b] p-3 rounded-2xl text-[#04c5e7]">
                         <CheckCircle size={22} />
                     </div>
                     <div>
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Quizzes Taken</span>
-                        <h3 className="text-xl font-bold text-slate-850 dark:text-slate-100 mt-0.5">{summary.totalAttempts} Quizzes</h3>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#52716c]">Quizzes Taken</span>
+                        <h3 className="text-xl font-extrabold text-[#00262b] mt-0.5">{summary.totalAttempts} Quizzes</h3>
                     </div>
                 </div>
             </div>
 
             {/* SVG Charts */}
-            <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
-                <h3 className="font-bold text-sm text-slate-800 dark:text-slate-200 mb-4 flex items-center gap-2">
-                    <TrendingUp className="text-indigo-600 dark:text-indigo-400" size={16} />
+            <div className="bg-[#ffffff] border border-[#edebe3] rounded-2xl p-6 shadow-sm">
+                <h3 className="font-extrabold text-base text-[#00262b] mb-4 flex items-center gap-2">
+                    <TrendingUp className="text-[#04c5e7]" size={18} />
                     <span>Quiz Scores Over Time</span>
                 </h3>
                 <div className="mt-4">
@@ -338,19 +337,17 @@ export default function Analytics() {
                 </div>
             </div>
 
-
-
             {/* Recent Quiz Attempts & Performance Details */}
             <div className="space-y-4">
-                <h3 className="font-bold text-slate-800 dark:text-slate-200 text-sm uppercase tracking-wider text-slate-400">
+                <h3 className="font-extrabold text-[#00262b] text-base">
                     Recent Quiz Performance History
                 </h3>
 
-                <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
+                <div className="bg-[#ffffff] border border-[#edebe3] rounded-2xl overflow-hidden shadow-sm">
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse text-sm">
                             <thead>
-                                <tr className="bg-slate-50 dark:bg-slate-850 border-b border-slate-100 dark:border-slate-805 text-slate-400 dark:text-slate-500 font-bold text-xs uppercase tracking-wider">
+                                <tr className="bg-[#f9f8f6] border-b border-[#edebe3] text-[#52716c] font-bold text-xs uppercase tracking-wider">
                                     <th className="px-6 py-4">Quiz Title</th>
                                     <th className="px-6 py-4">Completed Date</th>
                                     <th className="px-6 py-4">Correct Answers</th>
@@ -359,10 +356,10 @@ export default function Analytics() {
                                     <th className="px-6 py-4 text-right">Status</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 text-slate-700 dark:text-slate-350">
+                            <tbody className="divide-y divide-[#f3f1ed] text-[#00262b]">
                                 {!data.recentAttempts || data.recentAttempts.length === 0 ? (
                                     <tr>
-                                        <td colSpan="6" className="px-6 py-10 text-center text-slate-400">
+                                        <td colSpan="6" className="px-6 py-10 text-center text-[#52716c]">
                                             No quizzes attempted yet. Open course outline to take your first quiz!
                                         </td>
                                     </tr>
@@ -374,11 +371,11 @@ export default function Analytics() {
                                         const pass = attempt.score >= attempt.passing_score;
 
                                         return (
-                                            <tr key={attempt.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-855/40 transition-colors">
-                                                <td className="px-6 py-4 font-semibold text-slate-900 dark:text-slate-100">
+                                            <tr key={attempt.id} className="hover:bg-[#f9f8f6] transition-colors">
+                                                <td className="px-6 py-4 font-bold text-[#00262b]">
                                                     {attempt.quiz_title}
                                                 </td>
-                                                <td className="px-6 py-4 text-slate-400">
+                                                <td className="px-6 py-4 text-[#52716c]">
                                                     {new Date(attempt.completed_at).toLocaleDateString(undefined, {
                                                         month: 'short',
                                                         day: 'numeric',
@@ -386,23 +383,23 @@ export default function Analytics() {
                                                     })}
                                                 </td>
                                                 <td className="px-6 py-4">
-                                                    <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-bold">
+                                                    <span className="inline-flex items-center gap-1 text-[#00262b] font-bold">
                                                         ✓ {correct}
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-4">
-                                                    <span className="inline-flex items-center gap-1 text-rose-500 font-bold">
+                                                    <span className="inline-flex items-center gap-1 text-[#d64000] font-bold">
                                                         ✗ {incorrect}
                                                     </span>
                                                 </td>
-                                                <td className="px-6 py-4 font-bold">
+                                                <td className="px-6 py-4 font-extrabold text-[#00262b]">
                                                     {attempt.score}%
                                                 </td>
                                                 <td className="px-6 py-4 text-right">
-                                                    <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                                                    <span className={`inline-block text-[10px] font-bold px-2.5 py-0.5 rounded-[94px] uppercase tracking-wider border ${
                                                         pass 
-                                                            ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-450' 
-                                                            : 'bg-rose-50 text-rose-500 dark:bg-rose-500/10 dark:text-rose-455'
+                                                            ? 'bg-[#f3f1ed] text-[#00262b] border-[#04c5e7]' 
+                                                            : 'bg-[#f3f1ed] text-[#d64000] border-[#d64000]/40'
                                                     }`}>
                                                         {pass ? 'Pass' : 'Fail'}
                                                     </span>

@@ -108,6 +108,7 @@ CREATE TABLE question_responses (
     question_id UUID REFERENCES questions(id) ON DELETE CASCADE,
     student_id UUID REFERENCES users(id) ON DELETE CASCADE,
     is_correct BOOLEAN NOT NULL,
+    selected_option_id VARCHAR(50),
     time_spent_seconds INTEGER
 );
 
@@ -252,3 +253,15 @@ CREATE INDEX idx_course_tas_course ON course_tas(course_id);
 CREATE INDEX idx_ta_requests_ta ON ta_requests(ta_id);
 CREATE INDEX idx_ta_requests_student ON ta_requests(student_id);
 CREATE INDEX idx_ta_requests_course ON ta_requests(course_id);
+
+-- Performance & Foreign Key Indexes
+CREATE INDEX idx_courses_teacher ON courses(teacher_id);
+CREATE INDEX idx_enrollments_course ON enrollments(course_id);
+CREATE INDEX idx_topics_course_seq ON topics(course_id, sequence_order);
+CREATE INDEX idx_quizzes_topic ON quizzes(topic_id);
+CREATE INDEX idx_quiz_attempts_quiz_student ON quiz_attempts(quiz_id, student_id);
+CREATE INDEX idx_quiz_attempts_student_completed ON quiz_attempts(student_id, completed_at DESC);
+CREATE INDEX idx_question_responses_attempt ON question_responses(attempt_id);
+CREATE INDEX idx_users_student_xp ON users(role, xp_points DESC);
+CREATE INDEX idx_ta_requests_ta_status ON ta_requests(ta_id, status);
+

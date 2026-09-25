@@ -126,9 +126,9 @@ export default function CoursesList({ onSelectCourse }) {
 
     if (loading) {
         return (
-            <div className="flex flex-col items-center justify-center py-20 text-slate-500 dark:text-slate-400">
-                <div className="w-8 h-8 rounded-full border-2 border-indigo-600 border-t-transparent animate-spin mb-4" />
-                <span>Loading courses...</span>
+            <div className="flex flex-col items-center justify-center py-20 text-[#52716c]">
+                <div className="w-8 h-8 rounded-full border-3 border-[#00262b] border-t-transparent animate-spin mb-4" />
+                <span className="font-semibold text-sm">Loading courses...</span>
             </div>
         );
     }
@@ -138,23 +138,23 @@ export default function CoursesList({ onSelectCourse }) {
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+                    <h1 className="text-3xl md:text-4xl font-extrabold text-[#00262b] tracking-tight">
                         Explore Courses
                     </h1>
-                    <p className="mt-2 text-base font-medium text-slate-500 dark:text-slate-450">
+                    <p className="mt-2 text-sm font-medium text-[#52716c]">
                         {user.role === 'STUDENT' 
-                            ? 'Join classes taught by great teachers.' 
+                            ? 'Join classes taught by expert teachers and mentors.' 
                             : 'See all courses available on the platform.'
                         }
                     </p>
                 </div>
 
-                {/* Minimalist Search Bar */}
+                {/* Search Bar */}
                 <div className="relative max-w-xs w-full">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-550" size={18} />
+                    <Search className="absolute left-0.8 top-1/2 -translate-y-1/2 text-[#52716c]" size={18} />
                     <input 
                         type="text"
-                        className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl pl-12 pr-4 py-3 text-sm text-slate-850 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all shadow-sm"
+                        className="w-full bg-[#ffffff] border border-[#e1ddd1] rounded-xl pl-12 pr-4 py-2.5 text-sm text-[#00262b] focus:outline-none focus:border-[#04c5e7] transition-all shadow-sm"
                         placeholder="Search courses..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
@@ -163,18 +163,18 @@ export default function CoursesList({ onSelectCourse }) {
             </div>
 
             {error && (
-                <div className="bg-rose-500/10 text-rose-500 border border-rose-500/20 p-4 rounded-xl text-sm">
+                <div className="bg-[#f3f1ed] text-[#d64000] border border-[#d64000]/30 p-4 rounded-xl text-xs font-bold">
                     {error}
                 </div>
             )}
 
             {filteredCourses.length === 0 ? (
-                <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-8 text-center text-slate-500 dark:text-slate-400 text-sm">
+                <div className="bg-[#ffffff] border border-[#edebe3] rounded-2xl p-8 text-center text-[#52716c] text-sm shadow-sm">
                     No courses found matching your query.
                 </div>
             ) : (
                 /* Course Cards Grid */
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {filteredCourses.map(course => {
                         const isEnrolled = enrolledMap[course.id] !== undefined;
                         const isFree = parseFloat(course.price) === 0;
@@ -182,38 +182,36 @@ export default function CoursesList({ onSelectCourse }) {
                         return (
                             <div 
                                 key={course.id} 
-                                className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-850 rounded-xl p-8 flex flex-col justify-between hover:shadow-md transition-shadow group h-full"
+                                className="bg-[#ffffff] border border-[#edebe3] rounded-2xl p-6 flex flex-col justify-between hover:shadow-md transition-shadow group h-full shadow-sm"
                             >
                                 <div>
-                                    <div className="flex justify-between items-start mb-6">
-                                        <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-950/40 rounded-lg flex items-center justify-center text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform">
-                                            <BookOpen size={24} />
+                                    <div className="flex justify-between items-start mb-5">
+                                        <div className="w-12 h-12 bg-[#00262b] rounded-2xl flex items-center justify-center text-[#04c5e7] transition-transform">
+                                            <BookOpen size={22} />
                                         </div>
                                         <div className="flex flex-col items-end gap-1">
-                                            <span className={`text-[10px] font-bold px-2 py-1 rounded tracking-wider uppercase ${
-                                                isFree ? 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400' : 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400'
-                                            }`}>
+                                            <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-[94px] tracking-wider uppercase bg-[#f3f1ed] text-[#00262b] border border-[#e1ddd1]">
                                                 {isFree ? 'FREE' : 'PAID'}
                                             </span>
                                             {!isFree && (
-                                                <span className="text-[10px] font-black text-slate-900 dark:text-slate-100 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded">
+                                                <span className="text-xs font-extrabold text-[#00262b] bg-[#f9f8f6] border border-[#edebe3] px-2.5 py-0.5 rounded-[94px]">
                                                     ₹{course.price}
                                                 </span>
                                             )}
                                         </div>
                                     </div>
-                                    <h3 className="font-bold text-xl text-slate-900 dark:text-slate-100 mb-1 leading-tight">
+                                    <h3 className="font-extrabold text-xl text-[#00262b] mb-1 leading-tight">
                                         {course.title}
                                     </h3>
-                                    <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-6">
+                                    <p className="text-[11px] font-bold text-[#52716c] uppercase tracking-widest mb-4">
                                         Teacher: {course.teacher_first_name} {course.teacher_last_name}
                                     </p>
-                                    <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed mb-8 line-clamp-3">
+                                    <p className="text-sm text-[#52716c] leading-relaxed mb-6 line-clamp-3">
                                         {course.description || 'No description provided.'}
                                     </p>
                                 </div>
 
-                                <div className="pt-6 border-t border-slate-55 dark:border-slate-800/80">
+                                <div className="pt-4 border-t border-[#f3f1ed]">
                                     {user.role === 'STUDENT' ? (
                                         isEnrolled ? (
                                             <button 
@@ -221,28 +219,28 @@ export default function CoursesList({ onSelectCourse }) {
                                                     if (onSelectCourse) onSelectCourse(course);
                                                     navigate(`/courses/${course.id}`);
                                                 }}
-                                                className="w-full group/btn flex items-center justify-center gap-2 py-3 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 rounded-lg text-sm font-bold hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors"
+                                                className="btn-primary w-full flex items-center justify-center gap-2 !text-xs !py-2.5"
                                             >
                                                 <span>Go to Course</span>
-                                                <ArrowRight size={18} className="group-hover/btn:translate-x-1 transition-transform" />
+                                                <ArrowRight size={16} />
                                             </button>
                                         ) : (
-                                            <div className="flex gap-3">
+                                            <div className="flex gap-2">
                                                 <button 
                                                     onClick={() => {
                                                         if (onSelectCourse) onSelectCourse(course);
                                                         navigate(`/courses/${course.id}`);
                                                     }}
-                                                    className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200/50 dark:border-slate-700/50 rounded-lg text-sm font-bold flex items-center justify-center transition-colors"
+                                                    className="btn-ghost flex-1 !text-xs !py-2.5 flex items-center justify-center"
                                                 >
-                                                    <span>View Course</span>
+                                                    <span>View Details</span>
                                                 </button>
                                                 <button 
                                                     onClick={() => handleEnroll(course)}
                                                     disabled={actionLoadingId === course.id}
-                                                    className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white rounded-lg text-sm font-bold flex items-center justify-center gap-2 transition-colors shadow-sm"
+                                                    className="btn-primary flex-1 !text-xs !py-2.5 flex items-center justify-center gap-1.5"
                                                 >
-                                                    <CreditCard size={18} />
+                                                    <CreditCard size={15} />
                                                     <span>{actionLoadingId === course.id ? 'Opening...' : isFree ? 'Join Course' : 'Buy Course'}</span>
                                                 </button>
                                             </div>
@@ -254,15 +252,15 @@ export default function CoursesList({ onSelectCourse }) {
                                                     if (onSelectCourse) onSelectCourse(course);
                                                     navigate(`/courses/${course.id}`);
                                                 }}
-                                                className="w-full group/btn flex items-center justify-center gap-2 py-3 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 rounded-lg text-sm font-bold hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-colors"
+                                                className="btn-primary w-full flex items-center justify-center gap-2 !text-xs !py-2.5"
                                             >
                                                 <span>Open Course (TA View)</span>
-                                                <ArrowRight size={18} className="group-hover/btn:translate-x-1 transition-transform" />
+                                                <ArrowRight size={16} />
                                             </button>
                                         ) : (
                                             <button 
                                                 onClick={() => navigate('/ta-catalog')}
-                                                className="w-full py-2.5 bg-slate-100 dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                                                className="btn-ghost w-full !text-xs !py-2.5"
                                             >
                                                 Apply as TA for this Course
                                             </button>
@@ -274,12 +272,12 @@ export default function CoursesList({ onSelectCourse }) {
                                                     if (onSelectCourse) onSelectCourse(course);
                                                     navigate(`/courses/${course.id}`);
                                                 }}
-                                                className="w-full py-2.5 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200/50 dark:border-slate-700/50 rounded-xl text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-750 transition-colors"
+                                                className="btn-ghost w-full !text-xs !py-2.5"
                                             >
                                                 Edit Syllabus
                                             </button>
                                         ) : (
-                                            <div className="text-center text-xs text-slate-400 dark:text-slate-500 italic py-2">
+                                            <div className="text-center text-xs text-[#52716c] italic py-2">
                                                 Created by another teacher
                                             </div>
                                         )

@@ -1,16 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import api from '../services/api';
+import ConfirmModal from '../components/ConfirmModal';
+import { calculateAverageScore, getRecentScore } from '../utils/scoreUtils';
 import { 
     BookOpen, CheckCircle, Clock, XCircle, Send, Users, 
     Calendar, Link as LinkIcon, AlertCircle, FileText, ChevronRight,
-    UserCheck, UserX, Award, ShieldCheck, Video, HelpCircle, Check
+    UserCheck, UserX, Award, ShieldCheck, Video, HelpCircle, Check,
+    ArrowRight, Target, TrendingUp
 } from 'lucide-react';
 
 /* ====================================================================
    1. TA Available Courses & Application Modal Page
    ==================================================================== */
 export function TaCourseCatalog() {
+    const navigate = useNavigate();
     const [courses, setCourses] = useState([]);
     const [applications, setApplications] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -94,7 +98,7 @@ export function TaCourseCatalog() {
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-[400px]">
-                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600"></div>
+                <div className="w-8 h-8 rounded-full border-3 border-[#00262b] border-t-transparent animate-spin"></div>
             </div>
         );
     }
@@ -103,10 +107,10 @@ export function TaCourseCatalog() {
         <div className="space-y-8 animate-in fade-in duration-300">
             {/* Header */}
             <div>
-                <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
+                <h1 className="text-3xl font-extrabold tracking-tight text-[#00262b]">
                     Apply as Teaching Assistant
                 </h1>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                <p className="text-sm text-[#52716c] mt-1">
                     Browse courses needing TAs and submit your application to assist teachers and mentor students.
                 </p>
             </div>
@@ -116,46 +120,50 @@ export function TaCourseCatalog() {
                 {courses.map(course => {
                     const status = getAppStatus(course.id);
                     return (
-                        <div key={course.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 flex flex-col justify-between hover:shadow-lg transition-all">
+                        <div key={course.id} className="bg-[#ffffff] border border-[#edebe3] rounded-2xl p-6 flex flex-col justify-between hover:shadow-md transition-all shadow-sm">
                             <div>
                                 <div className="flex items-center justify-between mb-3">
-                                    <span className="px-3 py-1 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-xs font-semibold rounded-full">
+                                    {/* <span className="px-3 py-1 bg-[#f9f8f6] text-[#00262b] border border-[#e1ddd1] text-xs font-bold rounded-[94px]">
                                         Course ID: {course.id.slice(0, 8)}
-                                    </span>
+                                    </span> */}
                                     {status && (
-                                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                                            status === 'APPROVED' 
-                                                ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400' 
-                                                : 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400'
-                                        }`}>
+                                        <span className="px-3 py-1 rounded-[94px] text-xs font-bold bg-[#f3f1ed] text-[#00262b] border border-[#e1ddd1]">
                                             {status}
                                         </span>
                                     )}
                                 </div>
 
-                                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2 line-clamp-1">
+                                <h3 className="text-xl font-extrabold text-[#00262b] mb-2 line-clamp-1">
                                     {course.title}
                                 </h3>
-                                <p className="text-sm text-slate-600 dark:text-slate-400 line-clamp-3 mb-6">
+                                <p className="text-sm text-[#52716c] line-clamp-3 mb-6">
                                     {course.description || 'No detailed description provided.'}
                                 </p>
                             </div>
 
-                            <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between">
-                                <span className="text-xs text-slate-400">
+                            <div className="pt-4 border-t border-[#f3f1ed] flex items-center justify-between">
+                                <span className="text-xs text-[#52716c]">
                                     Teacher: {course.teacher_name || 'Assigned Instructor'}
                                 </span>
-                                {status ? (
+                                {status === 'APPROVED' ? (
+                                    <button 
+                                        onClick={() => navigate(`/courses/${course.id}`)}
+                                        className="btn-primary !text-xs !py-2 !px-4 inline-flex items-center gap-1.5"
+                                    >
+                                        <span>Open Course (TA View)</span>
+                                        <ArrowRight size={14} />
+                                    </button>
+                                ) : status === 'PENDING' ? (
                                     <button 
                                         disabled 
-                                        className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-400 text-xs font-medium rounded-xl cursor-not-allowed"
+                                        className="px-4 py-2 bg-[#f3f1ed] dark:bg-[#004d57] text-[#52716c] dark:text-[#a5b6b1] text-xs font-semibold rounded-[94px] cursor-not-allowed border border-[#e1ddd1] dark:border-[#00606c]"
                                     >
-                                        {status === 'APPROVED' ? 'Assigned TA' : 'Application Pending'}
+                                        Application Pending
                                     </button>
                                 ) : (
                                     <button 
                                         onClick={() => setSelectedCourse(course)}
-                                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-xl transition-colors shadow-sm"
+                                        className="btn-primary !text-xs !py-2 !px-4"
                                     >
                                         Apply as TA
                                     </button>
@@ -168,25 +176,25 @@ export function TaCourseCatalog() {
 
             {/* Application Modal */}
             {selectedCourse && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
-                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-5 my-8">
-                        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#00262b]/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
+                    <div className="bg-[#ffffff] border border-[#edebe3] rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5 my-8">
+                        <div className="flex items-center justify-between border-b border-[#f3f1ed] pb-4">
                             <div>
-                                <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                                <h3 className="text-xl font-extrabold text-[#00262b]">
                                     Apply for {selectedCourse.title}
                                 </h3>
-                                <p className="text-xs text-slate-400">Submit your qualifications to the lead teacher.</p>
+                                <p className="text-xs text-[#52716c]">Submit your qualifications to the lead teacher.</p>
                             </div>
                             <button 
                                 onClick={() => setSelectedCourse(null)}
-                                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                                className="text-[#52716c] hover:text-[#00262b] p-1 rounded-full hover:bg-[#f9f8f6]"
                             >
                                 ✕
                             </button>
                         </div>
 
                         {error && (
-                            <div className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs rounded-xl flex items-center gap-2">
+                            <div className="p-3 bg-[#f3f1ed] border border-[#d64000]/30 text-[#d64000] text-xs rounded-xl flex items-center gap-2 font-bold">
                                 <AlertCircle size={14} />
                                 <span>{error}</span>
                             </div>
@@ -195,28 +203,28 @@ export function TaCourseCatalog() {
                         <form onSubmit={handleApplySubmit} className="space-y-4">
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
-                                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                                    <label className="block text-xs font-bold text-[#52716c] uppercase tracking-wider mb-1">
                                         Full Name *
                                     </label>
                                     <input
                                         type="text"
                                         required
                                         placeholder="e.g. Jane Doe"
-                                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-sm focus:outline-none focus:border-indigo-500"
+                                        className="w-full bg-[#ffffff] border border-[#e1ddd1] rounded-xl p-2.5 text-sm text-[#00262b] focus:outline-none focus:border-[#04c5e7]"
                                         value={fullName}
                                         onChange={(e) => setFullName(e.target.value)}
                                     />
                                 </div>
 
                                 <div>
-                                    <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                                    <label className="block text-xs font-bold text-[#52716c] uppercase tracking-wider mb-1">
                                         Contact Phone Number *
                                     </label>
                                     <input
                                         type="tel"
                                         required
                                         placeholder="+1 555-0199 or 9876543210"
-                                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-sm focus:outline-none focus:border-indigo-500"
+                                        className="w-full bg-[#ffffff] border border-[#e1ddd1] rounded-xl p-2.5 text-sm text-[#00262b] focus:outline-none focus:border-[#04c5e7]"
                                         value={contact}
                                         onChange={(e) => setContact(e.target.value)}
                                     />
@@ -224,12 +232,12 @@ export function TaCourseCatalog() {
                             </div>
 
                             <div>
-                                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                                <label className="block text-xs font-bold text-[#52716c] uppercase tracking-wider mb-1">
                                     Qualification / Degree *
                                 </label>
                                 <select
                                     required
-                                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-sm focus:outline-none focus:border-indigo-500 text-slate-800 dark:text-slate-100"
+                                    className="w-full bg-[#ffffff] border border-[#e1ddd1] rounded-xl p-2.5 text-sm focus:outline-none focus:border-[#04c5e7] text-[#00262b]"
                                     value={qualification}
                                     onChange={(e) => setQualification(e.target.value)}
                                 >
@@ -243,57 +251,57 @@ export function TaCourseCatalog() {
                             </div>
 
                             <div>
-                                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                                <label className="block text-xs font-bold text-[#52716c] uppercase tracking-wider mb-1">
                                     Why do you want to join? *
                                 </label>
                                 <textarea
                                     required
-                                    rows={2}
-                                    placeholder="Explain your motivation for assisting students in this course..."
-                                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-sm focus:outline-none focus:border-indigo-500"
+                                    rows="3"
+                                    placeholder="Explain your passion and suitability for mentoring this course..."
+                                    className="w-full bg-[#ffffff] border border-[#e1ddd1] rounded-xl p-2.5 text-sm text-[#00262b] focus:outline-none focus:border-[#04c5e7]"
                                     value={motivation}
                                     onChange={(e) => setMotivation(e.target.value)}
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
-                                    Past Experience (Optional)
+                                <label className="block text-xs font-bold text-[#52716c] uppercase tracking-wider mb-1">
+                                    Relevant Past Experience (Optional)
                                 </label>
                                 <textarea
-                                    rows={2}
-                                    placeholder="Mention prior teaching assistantships, tutoring, or technical projects..."
-                                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-sm focus:outline-none focus:border-indigo-500"
+                                    rows="2"
+                                    placeholder="Previous tutoring, projects, or subject expertise..."
+                                    className="w-full bg-[#ffffff] border border-[#e1ddd1] rounded-xl p-2.5 text-sm text-[#00262b] focus:outline-none focus:border-[#04c5e7]"
                                     value={experience}
                                     onChange={(e) => setExperience(e.target.value)}
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                                <label className="block text-xs font-bold text-[#52716c] uppercase tracking-wider mb-1">
                                     Resume / Portfolio Link (Optional)
                                 </label>
                                 <input
                                     type="url"
                                     placeholder="https://linkedin.com/in/username"
-                                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-2.5 text-sm focus:outline-none focus:border-indigo-500"
+                                    className="w-full bg-[#ffffff] border border-[#e1ddd1] rounded-xl p-2.5 text-sm text-[#00262b] focus:outline-none focus:border-[#04c5e7]"
                                     value={resumeLink}
                                     onChange={(e) => setResumeLink(e.target.value)}
                                 />
                             </div>
 
-                            <div className="pt-4 flex items-center justify-end gap-3 border-t border-slate-100 dark:border-slate-800">
+                            <div className="pt-4 flex items-center justify-end gap-3 border-t border-[#f3f1ed]">
                                 <button
                                     type="button"
                                     onClick={() => setSelectedCourse(null)}
-                                    className="px-4 py-2 text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl"
+                                    className="btn-ghost !text-xs !py-2 !px-4"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="submit"
                                     disabled={submitting}
-                                    className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-xl shadow-md transition-colors"
+                                    className="btn-primary !text-xs !py-2 !px-5"
                                 >
                                     {submitting ? 'Submitting...' : 'Submit Application'}
                                 </button>
@@ -331,7 +339,7 @@ export function TaApplications() {
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-[400px]">
-                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600"></div>
+                <div className="w-8 h-8 rounded-full border-3 border-[#00262b] border-t-transparent animate-spin"></div>
             </div>
         );
     }
@@ -339,53 +347,53 @@ export function TaApplications() {
     return (
         <div className="space-y-8 animate-in fade-in duration-300">
             <div>
-                <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
+                <h1 className="text-3xl font-extrabold tracking-tight text-[#00262b]">
                     My TA Applications
                 </h1>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                <p className="text-sm text-[#52716c] mt-1">
                     Track the status of your applications to serve as a Teaching Assistant.
                 </p>
             </div>
 
             {applications.length === 0 ? (
-                <div className="p-12 text-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl space-y-3">
-                    <FileText className="mx-auto text-slate-300 dark:text-slate-700" size={48} />
-                    <p className="text-slate-600 dark:text-slate-400 text-sm">No applications submitted yet.</p>
+                <div className="p-12 text-center bg-[#ffffff] border border-[#edebe3] rounded-2xl space-y-3 shadow-sm">
+                    <FileText className="mx-auto text-[#52716c]" size={48} />
+                    <p className="text-[#52716c] text-sm">No applications submitted yet.</p>
                 </div>
             ) : (
                 <div className="grid gap-4">
                     {applications.map(app => (
-                        <div key={app.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-sm">
+                        <div key={app.id} className="bg-[#ffffff] border border-[#edebe3] rounded-2xl p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-sm">
                             <div className="space-y-1">
                                 <div className="flex items-center gap-3">
-                                    <h3 className="font-bold text-slate-900 dark:text-white text-base">
+                                    <h3 className="font-extrabold text-[#00262b] text-lg">
                                         {app.course_title}
                                     </h3>
-                                    <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${
+                                    <span className={`px-3 py-1 rounded-[94px] text-xs font-bold uppercase tracking-wider border ${
                                         app.status === 'APPROVED'
-                                            ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400'
+                                            ? 'bg-[#f3f1ed] text-[#00262b] border-[#04c5e7]'
                                             : app.status === 'REJECTED'
-                                                ? 'bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400'
-                                                : 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400'
+                                                ? 'bg-[#f3f1ed] text-[#d64000] border-[#d64000]/40'
+                                                : 'bg-[#f3f1ed] text-[#00262b] border-[#e1ddd1]'
                                     }`}>
                                         {app.status}
                                     </span>
                                 </div>
-                                <p className="text-xs text-slate-500">
+                                <p className="text-xs text-[#52716c]">
                                     Submitted on: {new Date(app.created_at).toLocaleDateString(undefined, { dateStyle: 'medium' })}
                                 </p>
-                                <p className="text-sm text-slate-600 dark:text-slate-300 mt-2">
+                                <p className="text-sm text-[#00262b] mt-2">
                                     <strong>Cover Note:</strong> {app.motivation}
                                 </p>
                                 {app.experience && (
-                                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                                    <p className="text-xs text-[#52716c]">
                                         <strong>Qualifications:</strong> {app.experience}
                                     </p>
                                 )}
                             </div>
 
                             {app.reviewed_at && (
-                                <div className="text-xs text-slate-400 border-t md:border-t-0 md:border-l border-slate-100 dark:border-slate-800 pt-3 md:pt-0 md:pl-6">
+                                <div className="text-xs text-[#52716c] border-t md:border-t-0 md:border-l border-[#f3f1ed] pt-3 md:pt-0 md:pl-6">
                                     Reviewed on: {new Date(app.reviewed_at).toLocaleDateString()}
                                 </div>
                             )}
@@ -442,7 +450,7 @@ export function TaAssignedStudents() {
     if (loadingCourses) {
         return (
             <div className="flex items-center justify-center min-h-[400px]">
-                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600"></div>
+                <div className="w-8 h-8 rounded-full border-3 border-[#00262b] border-t-transparent animate-spin"></div>
             </div>
         );
     }
@@ -450,24 +458,24 @@ export function TaAssignedStudents() {
     return (
         <div className="space-y-8 animate-in fade-in duration-300">
             <div>
-                <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
+                <h1 className="text-3xl font-extrabold tracking-tight text-[#00262b]">
                     Assigned Courses & Enrolled Students
                 </h1>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                <p className="text-sm text-[#52716c] mt-1">
                     Access non-sensitive student progress and skill scores for your assigned courses.
                 </p>
             </div>
 
             {assignedCourses.length === 0 ? (
-                <div className="p-12 text-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl space-y-3">
-                    <ShieldCheck className="mx-auto text-slate-300 dark:text-slate-700" size={48} />
-                    <h3 className="font-bold text-slate-800 dark:text-slate-200">No Assigned Courses Yet</h3>
-                    <p className="text-slate-500 text-xs">Apply for available courses and once approved by the lead teacher, your assigned courses will appear here.</p>
+                <div className="p-12 text-center bg-[#ffffff] border border-[#edebe3] rounded-2xl space-y-3 shadow-sm">
+                    <ShieldCheck className="mx-auto text-[#52716c]" size={48} />
+                    <h3 className="font-bold text-[#00262b]">No Assigned Courses Yet</h3>
+                    <p className="text-[#52716c] text-xs">Apply for available courses and once approved by the lead teacher, your assigned courses will appear here.</p>
                 </div>
             ) : (
                 <div className="space-y-6">
                     {/* Course Selector Tabs */}
-                    <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-slate-200 dark:border-slate-800">
+                    <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-[#edebe3]">
                         {assignedCourses.map(course => (
                             <button
                                 key={course.id}
@@ -475,10 +483,10 @@ export function TaAssignedStudents() {
                                     setSelectedCourseId(course.id);
                                     fetchStudentsForCourse(course.id);
                                 }}
-                                className={`px-4 py-2.5 rounded-xl text-xs font-semibold transition-all whitespace-nowrap ${
+                                className={`px-5 py-2.5 rounded-[94px] text-xs font-bold transition-all whitespace-nowrap ${
                                     selectedCourseId === course.id
-                                        ? 'bg-indigo-600 text-white shadow-md'
-                                        : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800'
+                                        ? 'bg-[#04c5e7] text-[#00262b] shadow-sm'
+                                        : 'btn-ghost'
                                 }`}
                             >
                                 {course.title}
@@ -488,51 +496,98 @@ export function TaAssignedStudents() {
 
                     {/* Students List */}
                     {loadingStudents ? (
-                        <div className="py-12 text-center text-slate-400 text-sm">Loading enrolled student records...</div>
+                        <div className="py-12 text-center text-[#52716c] text-sm">Loading enrolled student records...</div>
                     ) : students.length === 0 ? (
-                        <div className="p-8 text-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-slate-400 text-sm">
+                        <div className="p-8 text-center bg-[#ffffff] border border-[#edebe3] rounded-2xl text-[#52716c] text-sm shadow-sm">
                             No students enrolled in this course yet.
                         </div>
                     ) : (
                         <div className="grid gap-4">
                             {students.map(std => (
-                                <div key={std.student_id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 space-y-4 shadow-sm">
-                                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
+                                <div key={std.student_id} className="bg-[#ffffff] border border-[#edebe3] rounded-2xl p-6 space-y-4 shadow-sm">
+                                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 border-b border-[#f3f1ed] pb-3">
                                         <div>
-                                            <h4 className="font-bold text-slate-900 dark:text-white text-base">
+                                            <h4 className="font-bold text-[#00262b] text-base">
                                                 {std.first_name} {std.last_name}
                                             </h4>
-                                            <p className="text-xs text-slate-400">
+                                            <p className="text-xs text-[#52716c]">
                                                 Email: {std.email} • Enrolled: {new Date(std.enrolled_at).toLocaleDateString()}
                                             </p>
                                         </div>
-                                        <span className="px-3 py-1 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-xs font-semibold rounded-full self-start md:self-auto">
+                                        <span className="px-3 py-1 bg-[#f3f1ed] border border-[#e1ddd1] text-[#00262b] text-xs font-bold rounded-[94px] self-start md:self-auto">
                                             Status: Active ({std.payment_status})
                                         </span>
                                     </div>
 
-                                    {/* Topic Skill Scores */}
-                                    <div>
-                                        <h5 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">
-                                            Topic Skill Mastery Scores
-                                        </h5>
-                                        {(!std.topic_progress || std.topic_progress.length === 0) ? (
-                                            <p className="text-xs text-slate-400 italic">No topic scores logged yet.</p>
-                                        ) : (
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                                    {/* Student Performance Metrics: Average Score & Recent Score */}
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-1">
+                                        <div className="p-3.5 bg-[#f9f8f6] dark:bg-[#00383f] border border-[#edebe3] dark:border-[#004d57] rounded-xl flex items-center justify-between">
+                                            <div>
+                                                <span className="block text-[10px] font-bold uppercase text-[#52716c] dark:text-[#a5b6b1] tracking-wider">Average Score</span>
+                                                <span className="text-lg font-extrabold text-[#00262b] dark:text-[#f9f8f6] mt-0.5 block">
+                                                    {std.average_score !== null ? `${std.average_score}%` : 'No attempts yet'}
+                                                </span>
+                                            </div>
+                                            <div className="w-8 h-8 rounded-full bg-[#f3f1ed] dark:bg-[#004d57] flex items-center justify-center text-[#00262b] dark:text-[#04c5e7]">
+                                                <Target size={16} />
+                                            </div>
+                                        </div>
+
+                                        <div className="p-3.5 bg-[#f9f8f6] dark:bg-[#00383f] border border-[#edebe3] dark:border-[#004d57] rounded-xl flex items-center justify-between">
+                                            <div>
+                                                <span className="block text-[10px] font-bold uppercase text-[#52716c] dark:text-[#a5b6b1] tracking-wider">Recent Score</span>
+                                                <span className="text-lg font-extrabold text-[#00262b] dark:text-[#f9f8f6] mt-0.5 block">
+                                                    {std.recent_score !== null ? `${std.recent_score}%` : 'No attempts yet'}
+                                                </span>
+                                            </div>
+                                            <div className="w-8 h-8 rounded-full bg-[#f3f1ed] dark:bg-[#004d57] flex items-center justify-center text-[#00262b] dark:text-[#04c5e7]">
+                                                <TrendingUp size={16} />
+                                            </div>
+                                        </div>
+
+                                        <div className="p-3.5 bg-[#f9f8f6] dark:bg-[#00383f] border border-[#edebe3] dark:border-[#004d57] rounded-xl flex items-center justify-between">
+                                            <div>
+                                                <span className="block text-[10px] font-bold uppercase text-[#52716c] dark:text-[#a5b6b1] tracking-wider">Total Attempts</span>
+                                                <span className="text-lg font-extrabold text-[#00262b] dark:text-[#f9f8f6] mt-0.5 block">
+                                                    {std.attempts_count || 0} Attempt{std.attempts_count === 1 ? '' : 's'}
+                                                </span>
+                                            </div>
+                                            <div className="w-8 h-8 rounded-full bg-[#f3f1ed] dark:bg-[#004d57] flex items-center justify-center text-[#00262b] dark:text-[#04c5e7]">
+                                                <Award size={16} />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Topic Breakdown (Average & Recent per topic) */}
+                                    {std.topic_progress && std.topic_progress.length > 0 && (
+                                        <div className="pt-2">
+                                            <h5 className="text-[11px] font-bold text-[#52716c] dark:text-[#a5b6b1] uppercase tracking-wider mb-2.5">
+                                                Topic Breakdown (Average & Recent Scores)
+                                            </h5>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
                                                 {std.topic_progress.map((tp, idx) => (
-                                                    <div key={idx} className="bg-slate-50 dark:bg-slate-950 p-3 rounded-xl border border-slate-200/60 dark:border-slate-800 flex items-center justify-between">
-                                                        <span className="text-xs font-medium text-slate-700 dark:text-slate-300 truncate max-w-[140px]">
-                                                            {tp.topic_title}
-                                                        </span>
-                                                        <span className="text-xs font-bold px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-300 rounded-lg">
-                                                            {tp.skill_score} / 100
-                                                        </span>
+                                                    <div key={idx} className="p-3 bg-[#f9f8f6] dark:bg-[#00383f] border border-[#edebe3] dark:border-[#004d57] rounded-xl flex items-center justify-between gap-2">
+                                                        <div className="truncate min-w-0">
+                                                            <span className="text-xs font-bold text-[#00262b] dark:text-[#f9f8f6] block truncate" title={tp.topic_title}>
+                                                                {tp.topic_title}
+                                                            </span>
+                                                            <span className="text-[10px] text-[#52716c] dark:text-[#a5b6b1]">
+                                                                Progress: {tp.completion_percentage || 0}%
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex items-center gap-1.5 shrink-0">
+                                                            <span className="text-[11px] font-extrabold px-2 py-0.5 rounded-[94px] bg-[#f3f1ed] dark:bg-[#004d57] text-[#00262b] dark:text-[#f9f8f6] border border-[#e1ddd1] dark:border-[#00606c]" title="Average Score across attempts">
+                                                                Avg: {tp.average_score !== null ? `${tp.average_score}%` : '—'}
+                                                            </span>
+                                                            <span className="text-[11px] font-bold px-2 py-0.5 rounded-[94px] bg-[#f3f1ed] dark:bg-[#004d57] text-[#52716c] dark:text-[#a5b6b1] border border-[#e1ddd1] dark:border-[#00606c]" title="Recent Score">
+                                                                Rec: {tp.recent_score !== null ? `${tp.recent_score}%` : '—'}
+                                                            </span>
+                                                        </div>
                                                     </div>
                                                 ))}
                                             </div>
-                                        )}
-                                    </div>
+                                        </div>
+                                    )}
                                 </div>
                             ))}
                         </div>
@@ -617,7 +672,7 @@ export function TaPendingRequests() {
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-[400px]">
-                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600"></div>
+                <div className="w-8 h-8 rounded-full border-3 border-[#00262b] border-t-transparent animate-spin"></div>
             </div>
         );
     }
@@ -625,34 +680,34 @@ export function TaPendingRequests() {
     return (
         <div className="space-y-8 animate-in fade-in duration-300">
             <div>
-                <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
+                <h1 className="text-3xl font-extrabold tracking-tight text-[#00262b]">
                     Incoming Student Doubt Requests
                 </h1>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                <p className="text-sm text-[#52716c] mt-1">
                     Review student questions and schedule 1-on-1 virtual meeting sessions.
                 </p>
             </div>
 
-            {/* Filter Controls (Requirement 5) */}
-            <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3 overflow-x-auto">
+            {/* Filter Controls */}
+            <div className="flex items-center gap-2 border-b border-[#edebe3] pb-3 overflow-x-auto">
                 {[
-                    { id: 'ALL', label: 'All Requests', count: counts.ALL, color: 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300' },
-                    { id: 'PENDING', label: 'Pending', count: counts.PENDING, color: 'bg-amber-500/10 text-amber-600 dark:text-amber-400' },
-                    { id: 'SCHEDULED', label: 'Scheduled', count: counts.SCHEDULED, color: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400' },
-                    { id: 'RESOLVED', label: 'Resolved', count: counts.RESOLVED, color: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' }
+                    { id: 'ALL', label: 'All Requests', count: counts.ALL },
+                    { id: 'PENDING', label: 'Pending', count: counts.PENDING },
+                    { id: 'SCHEDULED', label: 'Scheduled', count: counts.SCHEDULED },
+                    { id: 'RESOLVED', label: 'Resolved', count: counts.RESOLVED }
                 ].map(tab => (
                     <button
                         key={tab.id}
                         onClick={() => setFilterStatus(tab.id)}
-                        className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
+                        className={`px-5 py-2.5 rounded-[94px] text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
                             filterStatus === tab.id
-                                ? 'bg-indigo-600 text-white shadow-md'
-                                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800'
+                                ? 'bg-[#04c5e7] text-[#00262b] shadow-sm'
+                                : 'btn-ghost'
                         }`}
                     >
                         <span>{tab.label}</span>
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
-                            filterStatus === tab.id ? 'bg-white/20 text-white' : tab.color
+                        <span className={`px-2 py-0.5 rounded-[94px] text-[10px] font-black ${
+                            filterStatus === tab.id ? 'bg-[#00262b] text-white' : 'bg-[#f3f1ed] text-[#00262b]'
                         }`}>
                             {tab.count}
                         </span>
@@ -661,64 +716,64 @@ export function TaPendingRequests() {
             </div>
 
             {filteredRequests.length === 0 ? (
-                <div className="p-12 text-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl space-y-3">
-                    <HelpCircle className="mx-auto text-slate-300 dark:text-slate-700" size={48} />
-                    <p className="text-slate-600 dark:text-slate-400 text-sm">
+                <div className="p-12 text-center bg-[#ffffff] border border-[#edebe3] rounded-2xl space-y-3 shadow-sm">
+                    <HelpCircle className="mx-auto text-[#52716c]" size={48} />
+                    <p className="text-[#52716c] text-sm">
                         No {filterStatus !== 'ALL' ? filterStatus.toLowerCase() : ''} student doubt requests found.
                     </p>
                 </div>
             ) : (
                 <div className="grid gap-4">
                     {filteredRequests.map(req => (
-                        <div key={req.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 space-y-4 shadow-sm">
-                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
+                        <div key={req.id} className="bg-[#ffffff] border border-[#edebe3] rounded-2xl p-6 space-y-4 shadow-sm">
+                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 border-b border-[#f3f1ed] pb-3">
                                 <div>
-                                    <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
+                                    <span className="text-xs font-bold text-[#04c5e7]">
                                         Course: {req.course_title}
                                     </span>
-                                    <h3 className="font-bold text-slate-900 dark:text-white text-lg">
+                                    <h3 className="font-extrabold text-[#00262b] text-lg">
                                         {req.subject}
                                     </h3>
-                                    <p className="text-xs text-slate-400">
+                                    <p className="text-xs text-[#52716c]">
                                         From: {req.student_first_name} {req.student_last_name} ({req.student_email})
                                     </p>
                                 </div>
 
-                                <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider self-start md:self-auto ${
+                                <span className={`px-3 py-1 rounded-[94px] text-xs font-bold uppercase tracking-wider self-start md:self-auto border ${
                                     req.status === 'SCHEDULED'
-                                        ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400'
+                                        ? 'bg-[#f3f1ed] text-[#00262b] border-[#04c5e7]'
                                         : req.status === 'RESOLVED'
-                                            ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400'
-                                            : 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400'
+                                            ? 'bg-[#f3f1ed] text-[#00262b] border-[#e1ddd1]'
+                                            : 'bg-[#f3f1ed] text-[#d64000] border-[#d64000]/40'
                                 }`}>
                                     {req.status}
                                 </span>
                             </div>
 
-                            <p className="text-sm text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-100 dark:border-slate-800/80">
+                            <p className="text-sm text-[#00262b] bg-[#f9f8f6] p-4 rounded-xl border border-[#edebe3]">
                                 {req.description}
                             </p>
 
-                            {/* Meeting Link only shown if SCHEDULED (Requirement 6: hide link on RESOLVED) */}
+                            {/* Meeting Link only shown if SCHEDULED */}
                             {req.meeting_link && req.status === 'SCHEDULED' && (
-                                <div className="p-3 bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 rounded-xl text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                <div className="p-3 bg-[#f9f8f6] border border-[#04c5e7] rounded-xl text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                                     <div>
-                                        <span className="font-bold text-indigo-700 dark:text-indigo-300">Scheduled: </span>
-                                        <span className="text-slate-700 dark:text-slate-300">{new Date(req.scheduled_at).toLocaleString()}</span>
+                                        <span className="font-bold text-[#00262b]">Scheduled: </span>
+                                        <span className="text-[#00262b]">{new Date(req.scheduled_at).toLocaleString()}</span>
                                     </div>
-                                    <a href={req.meeting_link} target="_blank" rel="noreferrer" className="text-indigo-600 font-bold underline flex items-center gap-1">
+                                    <a href={req.meeting_link} target="_blank" rel="noreferrer" className="text-[#00262b] font-bold underline flex items-center gap-1 hover:text-[#04c5e7]">
                                         <Video size={14} /> Join Meeting
                                     </a>
                                 </div>
                             )}
 
                             {req.status === 'RESOLVED' && (
-                                <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-xl text-xs flex items-center justify-between">
-                                    <span className="font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
-                                        <CheckCircle size={14} /> Session Resolved
+                                <div className="p-3 bg-[#f9f8f6] border border-[#edebe3] rounded-xl text-xs flex items-center justify-between">
+                                    <span className="font-bold text-[#00262b] flex items-center gap-1.5">
+                                        <CheckCircle size={14} className="text-[#00262b]" /> Session Resolved
                                     </span>
                                     {req.scheduled_at && (
-                                        <span className="text-[11px] text-slate-400">
+                                        <span className="text-[11px] text-[#52716c]">
                                             Completed: {new Date(req.scheduled_at).toLocaleDateString()}
                                         </span>
                                     )}
@@ -733,7 +788,7 @@ export function TaPendingRequests() {
                                             const defaultDate = new Date(Date.now() + 3600000);
                                             setScheduledAt(defaultDate.toISOString().slice(0, 16));
                                         }}
-                                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-xl transition-colors shadow-sm"
+                                        className="btn-primary !text-xs !py-2 !px-4"
                                     >
                                         Schedule Virtual Meeting
                                     </button>
@@ -742,7 +797,7 @@ export function TaPendingRequests() {
                                 {req.status === 'SCHEDULED' && (
                                     <button
                                         onClick={() => handleResolve(req.id)}
-                                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl transition-colors shadow-sm flex items-center gap-1.5"
+                                        className="btn-primary !text-xs !py-2 !px-4 flex items-center gap-1.5"
                                     >
                                         <Check size={14} /> Mark Resolved
                                     </button>
@@ -755,25 +810,25 @@ export function TaPendingRequests() {
 
             {/* Scheduling Modal */}
             {selectedReq && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-6">
-                        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#00262b]/60 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-[#ffffff] border border-[#edebe3] rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-6">
+                        <div className="flex items-center justify-between border-b border-[#f3f1ed] pb-4">
                             <div>
-                                <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                                <h3 className="text-xl font-extrabold text-[#00262b]">
                                     Schedule Session for {selectedReq.student_first_name}
                                 </h3>
-                                <p className="text-xs text-slate-400">Subject: {selectedReq.subject}</p>
+                                <p className="text-xs text-[#52716c]">Subject: {selectedReq.subject}</p>
                             </div>
                             <button 
                                 onClick={() => setSelectedReq(null)}
-                                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                                className="text-[#52716c] hover:text-[#00262b] p-1 rounded-full hover:bg-[#f9f8f6]"
                             >
                                 ✕
                             </button>
                         </div>
 
                         {error && (
-                            <div className="p-3 bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs rounded-xl flex items-center gap-2">
+                            <div className="p-3 bg-[#f3f1ed] border border-[#d64000]/30 text-[#d64000] text-xs rounded-xl flex items-center gap-2 font-bold">
                                 <AlertCircle size={14} />
                                 <span>{error}</span>
                             </div>
@@ -781,48 +836,48 @@ export function TaPendingRequests() {
 
                         <form onSubmit={handleScheduleSubmit} className="space-y-4">
                             <div>
-                                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                                <label className="block text-xs font-bold text-[#52716c] uppercase tracking-wider mb-1">
                                     Virtual Meeting URL (Google Meet / Zoom) *
                                 </label>
                                 <input
                                     type="url"
                                     required
                                     placeholder="https://meet.google.com/abc-defg-hij"
-                                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-sm focus:outline-none focus:border-indigo-500"
+                                    className="w-full bg-[#ffffff] border border-[#e1ddd1] rounded-xl p-3 text-sm text-[#00262b] focus:outline-none focus:border-[#04c5e7]"
                                     value={meetingLink}
                                     onChange={(e) => setMeetingLink(e.target.value)}
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                                <label className="block text-xs font-bold text-[#52716c] uppercase tracking-wider mb-1">
                                     Scheduled Date & Time *
                                 </label>
                                 <input
                                     type="datetime-local"
                                     required
-                                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-sm focus:outline-none focus:border-indigo-500"
+                                    className="w-full bg-[#ffffff] border border-[#e1ddd1] rounded-xl p-3 text-sm text-[#00262b] focus:outline-none focus:border-[#04c5e7]"
                                     value={scheduledAt}
                                     onChange={(e) => setScheduledAt(e.target.value)}
                                 />
                             </div>
 
-                            <div className="p-3 bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 rounded-xl text-xs text-indigo-700 dark:text-indigo-300">
+                            <div className="p-3 bg-[#f9f8f6] border border-[#e1ddd1] rounded-xl text-xs text-[#00262b]">
                                 💡 An automated email notification with an attached <code>.ics</code> calendar event will be sent to <strong>{selectedReq.student_email}</strong> upon confirmation.
                             </div>
 
-                            <div className="pt-4 flex items-center justify-end gap-3 border-t border-slate-100 dark:border-slate-800">
+                            <div className="pt-4 flex items-center justify-end gap-3 border-t border-[#f3f1ed]">
                                 <button
                                     type="button"
                                     onClick={() => setSelectedReq(null)}
-                                    className="px-4 py-2 text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl"
+                                    className="btn-ghost !text-xs !py-2 !px-4"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="submit"
                                     disabled={submitting}
-                                    className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-xl shadow-md transition-colors"
+                                    className="btn-primary !text-xs !py-2 !px-5"
                                 >
                                     {submitting ? 'Scheduling...' : 'Confirm Schedule & Send Invite'}
                                 </button>
@@ -845,6 +900,7 @@ export function TeacherTaReview() {
     const [loading, setLoading] = useState(true);
     const [reviewingId, setReviewingId] = useState(null);
     const [filterStatus, setFilterStatus] = useState(initialFilter);
+    const [removeTarget, setRemoveTarget] = useState(null);
 
     useEffect(() => {
         const paramStatus = searchParams.get('status');
@@ -872,7 +928,14 @@ export function TeacherTaReview() {
         setReviewingId(appId);
         try {
             await api.reviewTaApplication(appId, status);
-            if (window.showToast) window.showToast(`Application ${status.toLowerCase()} successfully`, 'success');
+            if (window.showToast) {
+                window.showToast(
+                    status === 'REMOVED'
+                        ? 'TA removed and access revoked successfully'
+                        : `Application ${status.toLowerCase()} successfully`,
+                    'success'
+                );
+            }
             setApplications(prev => prev.map(app => app.id === appId ? { ...app, status, reviewed_at: new Date().toISOString() } : app));
         } catch (err) {
             console.error('Error reviewing application:', err);
@@ -886,7 +949,8 @@ export function TeacherTaReview() {
         ALL: applications.length,
         PENDING: applications.filter(a => a.status === 'PENDING').length,
         APPROVED: applications.filter(a => a.status === 'APPROVED').length,
-        REJECTED: applications.filter(a => a.status === 'REJECTED').length
+        REJECTED: applications.filter(a => a.status === 'REJECTED').length,
+        REMOVED: applications.filter(a => a.status === 'REMOVED').length
     };
 
     const filteredApplications = applications.filter(app => {
@@ -897,41 +961,58 @@ export function TeacherTaReview() {
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-[400px]">
-                <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600"></div>
+                <div className="w-8 h-8 rounded-full border-3 border-[#00262b] border-t-transparent animate-spin"></div>
             </div>
         );
     }
 
     return (
         <div className="space-y-8 animate-in fade-in duration-300">
+            <ConfirmModal
+                isOpen={!!removeTarget}
+                title="Remove Teaching Assistant?"
+                message={`Are you sure you want to remove ${removeTarget?.full_name || removeTarget?.ta_first_name || 'this TA'} from course "${removeTarget?.course_title}"? This will immediately revoke their student progress visibility and doubt request assignment.`}
+                confirmText="Confirm Removal"
+                cancelText="Cancel"
+                confirmVariant="danger"
+                onConfirm={async () => {
+                    if (!removeTarget) return;
+                    const targetId = removeTarget.id;
+                    setRemoveTarget(null);
+                    await handleReview(targetId, 'REMOVED');
+                }}
+                onCancel={() => setRemoveTarget(null)}
+            />
+
             <div>
-                <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
+                <h1 className="text-3xl font-extrabold tracking-tight text-[#00262b]">
                     Review TA Applications
                 </h1>
-                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                <p className="text-sm text-[#52716c] mt-1">
                     Inspect cover notes, phone contact, qualifications, and experience of TA applicants for your courses.
                 </p>
             </div>
 
-            <div className="flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3 overflow-x-auto">
+            <div className="flex items-center gap-2 border-b border-[#edebe3] pb-3 overflow-x-auto">
                 {[
-                    { id: 'ALL', label: 'All Applications', count: counts.ALL, color: 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300' },
-                    { id: 'PENDING', label: 'Pending', count: counts.PENDING, color: 'bg-amber-500/10 text-amber-600 dark:text-amber-400' },
-                    { id: 'APPROVED', label: 'Approved', count: counts.APPROVED, color: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' },
-                    { id: 'REJECTED', label: 'Rejected', count: counts.REJECTED, color: 'bg-rose-500/10 text-rose-600 dark:text-rose-400' }
+                    { id: 'ALL', label: 'All Applications', count: counts.ALL },
+                    { id: 'PENDING', label: 'Pending', count: counts.PENDING },
+                    { id: 'APPROVED', label: 'Approved', count: counts.APPROVED },
+                    { id: 'REJECTED', label: 'Rejected', count: counts.REJECTED },
+                    { id: 'REMOVED', label: 'Removed', count: counts.REMOVED }
                 ].map(tab => (
                     <button
                         key={tab.id}
                         onClick={() => setFilterStatus(tab.id)}
-                        className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
+                        className={`px-5 py-2.5 rounded-[94px] text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap ${
                             filterStatus === tab.id
-                                ? 'bg-indigo-600 text-white shadow-md'
-                                : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800'
+                                ? 'bg-[#04c5e7] text-[#00262b] shadow-sm'
+                                : 'btn-ghost'
                         }`}
                     >
                         <span>{tab.label}</span>
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
-                            filterStatus === tab.id ? 'bg-white/20 text-white' : tab.color
+                        <span className={`px-2 py-0.5 rounded-[94px] text-[10px] font-black ${
+                            filterStatus === tab.id ? 'bg-[#00262b] text-white' : 'bg-[#f3f1ed] text-[#00262b]'
                         }`}>
                             {tab.count}
                         </span>
@@ -940,9 +1021,9 @@ export function TeacherTaReview() {
             </div>
 
             {filteredApplications.length === 0 ? (
-                <div className="p-12 text-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl space-y-3">
-                    <UserCheck className="mx-auto text-slate-300 dark:text-slate-700" size={48} />
-                    <p className="text-slate-600 dark:text-slate-400 text-sm">
+                <div className="p-12 text-center bg-[#ffffff] border border-[#edebe3] rounded-2xl space-y-3 shadow-sm">
+                    <UserCheck className="mx-auto text-[#52716c]" size={48} />
+                    <p className="text-[#52716c] text-sm">
                         No {filterStatus !== 'ALL' ? filterStatus.toLowerCase() : ''} TA applications found.
                     </p>
                 </div>
@@ -951,47 +1032,47 @@ export function TeacherTaReview() {
                     {filteredApplications.map(app => {
                         const applicantName = app.full_name || `${app.ta_first_name || ''} ${app.ta_last_name || ''}`.trim() || 'Applicant';
                         return (
-                            <div key={app.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 space-y-4 shadow-sm">
-                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
+                            <div key={app.id} className="bg-[#ffffff] border border-[#edebe3] rounded-2xl p-6 space-y-4 shadow-sm">
+                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 border-b border-[#f3f1ed] pb-3">
                                     <div>
-                                        <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
+                                        <span className="text-xs font-bold text-[#04c5e7]">
                                             Course: {app.course_title}
                                         </span>
-                                        <h3 className="font-bold text-slate-900 dark:text-white text-lg mt-0.5">
+                                        <h3 className="font-extrabold text-[#00262b] text-xl mt-0.5">
                                             Applicant: {applicantName}
                                         </h3>
-                                        <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400 mt-1">
+                                        <div className="flex flex-wrap items-center gap-3 text-xs text-[#52716c] mt-1">
                                             <span>Email: {app.ta_email}</span>
                                             {app.contact && <span>• Phone: {app.contact}</span>}
-                                            {app.qualification && <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-md font-medium">{app.qualification}</span>}
+                                            {app.qualification && <span className="px-2.5 py-0.5 bg-[#f3f1ed] text-[#00262b] rounded-[94px] border border-[#e1ddd1] font-bold">{app.qualification}</span>}
                                         </div>
                                     </div>
 
-                                    <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider self-start md:self-auto border ${
+                                    <span className={`px-3 py-1 rounded-[94px] text-xs font-bold uppercase tracking-wider self-start md:self-auto border ${
                                         app.status === 'APPROVED'
-                                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-800/40'
-                                            : app.status === 'REJECTED'
-                                                ? 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-500/10 dark:text-rose-400 dark:border-rose-800/40'
-                                                : 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-800/40'
+                                            ? 'bg-[#f3f1ed] text-[#00262b] border-[#04c5e7]'
+                                            : app.status === 'REMOVED' || app.status === 'REJECTED'
+                                                ? 'bg-[#f3f1ed] text-[#d64000] border-[#d64000]/40'
+                                                : 'bg-[#f3f1ed] text-[#00262b] border-[#e1ddd1]'
                                     }`}>
                                         {app.status}
                                     </span>
                                 </div>
 
-                                <div className="space-y-3 text-sm text-slate-700 dark:text-slate-300">
+                                <div className="space-y-3 text-sm text-[#00262b]">
                                     <div>
-                                        <strong className="text-xs text-slate-400 uppercase tracking-wider block mb-1">Motivation / Why Join:</strong>
-                                        <p className="bg-slate-50 dark:bg-slate-950 p-3.5 rounded-xl border border-slate-100 dark:border-slate-800/80">{app.motivation || 'No motivation note provided.'}</p>
+                                        <strong className="text-xs text-[#52716c] uppercase tracking-wider block mb-1">Motivation / Why Join:</strong>
+                                        <p className="bg-[#f9f8f6] p-3.5 rounded-xl border border-[#edebe3]">{app.motivation || 'No motivation note provided.'}</p>
                                     </div>
                                     {app.experience && (
                                         <div>
-                                            <strong className="text-xs text-slate-400 uppercase tracking-wider block mb-1">Past Experience & Qualifications:</strong>
-                                            <p className="bg-slate-50 dark:bg-slate-950 p-3.5 rounded-xl border border-slate-100 dark:border-slate-800/80">{app.experience}</p>
+                                            <strong className="text-xs text-[#52716c] uppercase tracking-wider block mb-1">Past Experience & Qualifications:</strong>
+                                            <p className="bg-[#f9f8f6] p-3.5 rounded-xl border border-[#edebe3]">{app.experience}</p>
                                         </div>
                                     )}
                                     {app.resume_link && (
                                         <div className="pt-1">
-                                            <a href={app.resume_link} target="_blank" rel="noreferrer" className="text-xs text-indigo-600 font-bold underline inline-flex items-center gap-1">
+                                            <a href={app.resume_link} target="_blank" rel="noreferrer" className="text-xs text-[#04c5e7] font-bold underline inline-flex items-center gap-1 hover:text-[#00262b]">
                                                 <LinkIcon size={12} /> View Resume / Portfolio
                                             </a>
                                         </div>
@@ -999,24 +1080,37 @@ export function TeacherTaReview() {
                                 </div>
 
                                 {app.status === 'PENDING' ? (
-                                    <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100 dark:border-slate-800">
+                                    <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#f3f1ed]">
                                         <button
                                             disabled={reviewingId === app.id}
                                             onClick={() => handleReview(app.id, 'REJECTED')}
-                                            className="px-4 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 text-xs font-semibold rounded-xl transition-colors flex items-center gap-1"
+                                            className="btn-filled !text-xs !py-2 !px-4 flex items-center gap-1"
                                         >
                                             <UserX size={14} /> Reject Application
                                         </button>
                                         <button
                                             disabled={reviewingId === app.id}
                                             onClick={() => handleReview(app.id, 'APPROVED')}
-                                            className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl transition-colors shadow-sm flex items-center gap-1"
+                                            className="btn-primary !text-xs !py-2 !px-5 flex items-center gap-1"
                                         >
                                             <UserCheck size={14} /> Approve Application
                                         </button>
                                     </div>
+                                ) : app.status === 'APPROVED' ? (
+                                    <div className="flex items-center justify-between pt-3 border-t border-[#f3f1ed] text-xs">
+                                        <span className="text-[#52716c]">
+                                            {app.reviewed_at ? `Approved on ${new Date(app.reviewed_at).toLocaleDateString()}` : 'Status: Approved'}
+                                        </span>
+                                        <button
+                                            disabled={reviewingId === app.id}
+                                            onClick={() => setRemoveTarget(app)}
+                                            className="btn-filled !text-xs !py-1.5 !px-3.5 flex items-center gap-1"
+                                        >
+                                            <UserX size={13} /> Remove TA
+                                        </button>
+                                    </div>
                                 ) : (
-                                    <div className="flex items-center justify-between pt-3 border-t border-slate-100 dark:border-slate-800 text-xs text-slate-400">
+                                    <div className="flex items-center justify-between pt-3 border-t border-[#f3f1ed] text-xs text-[#52716c]">
                                         <span>Status: {app.status}</span>
                                         {app.reviewed_at && <span>Reviewed on {new Date(app.reviewed_at).toLocaleDateString()}</span>}
                                     </div>

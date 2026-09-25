@@ -47,38 +47,57 @@ async function processQuizSubmission(studentId, quizId, topicId, answers) {
     try {
         await client.query('BEGIN');
 
+        // Check student role to strictly reject TAs or teachers from submitting quiz attempts
+        const userCheck = await client.query('SELECT role FROM users WHERE id = $1', [studentId]);
+        if (userCheck.rows.length === 0 || userCheck.rows[0].role !== 'STUDENT') {
+            const roleName = userCheck.rows[0]?.role || 'USER';
+            throw new Error(`${roleName}s cannot submit quiz attempts.`);
+        }
+
         let correctCount = 0;
         const totalQuestions = answers.length;
         const processedResponses = [];
 
-        // 1. Evaluate answers
-        for (const answer of answers) {
-            const questionRes = await client.query(
-                'SELECT correct_option_id, difficulty, content, options FROM questions WHERE id = $1',
-                [answer.questionId]
-            );
+        // 1. Batch fetch questions to eliminate N+1 SELECT queries
+        const questionIds = answers.map(a => a.questionId);
+        const questionsRes = await client.query(
+            'SELECT id, correct_option_id, difficulty, content, options FROM questions WHERE id = ANY($1)',
+            [questionIds]
+        );
+        const questionMap = new Map();
+        for (const q of questionsRes.rows) {
+            questionMap.set(q.id, q);
+        }
 
-            if (questionRes.rows.length === 0) {
+        // Evaluate answers using in-memory question map
+        for (const answer of answers) {
+            const question = questionMap.get(answer.questionId);
+            if (!question) {
                 throw new Error(`Question ${answer.questionId} not found`);
             }
 
-            const { correct_option_id, difficulty, content, options } = questionRes.rows[0];
+            const { correct_option_id, difficulty, content, options } = question;
             const isCorrect = correct_option_id === answer.selectedOptionId;
 
             if (isCorrect) {
                 correctCount++;
             }
 
-            // Find the text of the correct option for review display
+            // Find the text of the correct option and selected option for review display
             const optionsArr = typeof options === 'string' ? JSON.parse(options) : options;
             const correctOption = optionsArr.find(o => o.id === correct_option_id);
+            const selectedOption = optionsArr.find(o => o.id === answer.selectedOptionId);
 
             processedResponses.push({
                 questionId: answer.questionId,
                 content,
+                options: optionsArr,
+                selectedOptionId: answer.selectedOptionId,
+                selectedOptionText: selectedOption ? selectedOption.text : answer.selectedOptionId,
+                correctOptionId: correct_option_id,
+                correctOptionText: correctOption ? correctOption.text : correct_option_id,
                 isCorrect,
-                difficulty,
-                correctOptionText: correctOption ? correctOption.text : correct_option_id
+                difficulty
             });
         }
 
@@ -93,13 +112,29 @@ async function processQuizSubmission(studentId, quizId, topicId, answers) {
         const attemptRes = await client.query(insertAttemptQuery, [studentId, quizId, scorePercentage]);
         const attemptId = attemptRes.rows[0].id;
 
-        // 3. Bulk insert detailed responses for adaptive tracking
-        for (const response of processedResponses) {
-            const insertResponseQuery = `
-                INSERT INTO question_responses (attempt_id, question_id, student_id, is_correct)
-                VALUES ($1, $2, $3, $4)
+        // 3. Multi-row batch insert detailed responses for adaptive tracking (replaces loop with 1 query)
+        if (processedResponses.length > 0) {
+            const values = [];
+            const placeholders = [];
+            let paramIdx = 1;
+
+            for (const response of processedResponses) {
+                placeholders.push(`($${paramIdx}, $${paramIdx + 1}, $${paramIdx + 2}, $${paramIdx + 3}, $${paramIdx + 4})`);
+                values.push(
+                    attemptId,
+                    response.questionId,
+                    studentId,
+                    response.isCorrect,
+                    response.selectedOptionId
+                );
+                paramIdx += 5;
+            }
+
+            const insertResponsesQuery = `
+                INSERT INTO question_responses (attempt_id, question_id, student_id, is_correct, selected_option_id)
+                VALUES ${placeholders.join(', ')}
             `;
-            await client.query(insertResponseQuery, [attemptId, response.questionId, studentId, response.isCorrect]);
+            await client.query(insertResponsesQuery, values);
         }
 
         // Recalculate dynamic completion percentage based on notes, videos and quiz attempts
@@ -147,9 +182,15 @@ async function processQuizSubmission(studentId, quizId, topicId, answers) {
             [newXp, newStreak, today, studentId]
         );
 
-        // 6. Check for Achievements Unlocked
+        // 6. Check for Achievements Unlocked (Pre-fetch student's unlocked achievements to eliminate N queries)
         const achievementsUnlocked = [];
-        const achievementsRes = await client.query('SELECT * FROM achievements');
+        const [achievementsRes, existingAchievementsRes] = await Promise.all([
+            client.query('SELECT id, title, description, condition_type, condition_value FROM achievements'),
+            client.query('SELECT achievement_id FROM user_achievements WHERE student_id = $1', [studentId])
+        ]);
+        const existingAchievementIds = new Set(existingAchievementsRes.rows.map(r => r.achievement_id));
+        const newAchievementsToInsert = [];
+
         for (const achievement of achievementsRes.rows) {
             let unlocked = false;
 
@@ -161,39 +202,61 @@ async function processQuizSubmission(studentId, quizId, topicId, answers) {
                 unlocked = true;
             }
 
-            if (unlocked) {
-                // Check if user already unlocked it
-                const userAchieveRes = await client.query(
-                    'SELECT id FROM user_achievements WHERE student_id = $1 AND achievement_id = $2',
-                    [studentId, achievement.id]
-                );
-                if (userAchieveRes.rows.length === 0) {
-                    await client.query(
-                        'INSERT INTO user_achievements (student_id, achievement_id) VALUES ($1, $2)',
-                        [studentId, achievement.id]
-                    );
-                    achievementsUnlocked.push({
-                        title: achievement.title,
-                        description: achievement.description
-                    });
-                }
+            if (unlocked && !existingAchievementIds.has(achievement.id)) {
+                newAchievementsToInsert.push(achievement);
+                existingAchievementIds.add(achievement.id);
+                achievementsUnlocked.push({
+                    title: achievement.title,
+                    description: achievement.description
+                });
             }
         }
+
+        if (newAchievementsToInsert.length > 0) {
+            const values = [];
+            const placeholders = [];
+            let paramIdx = 1;
+            for (const ach of newAchievementsToInsert) {
+                placeholders.push(`($${paramIdx}, $${paramIdx + 1})`);
+                values.push(studentId, ach.id);
+                paramIdx += 2;
+            }
+            await client.query(
+                `INSERT INTO user_achievements (student_id, achievement_id) VALUES ${placeholders.join(', ')}`,
+                values
+            );
+        }
+
+        // Calculate running average and attempts count using SQL aggregation
+        const attemptsStatsRes = await client.query(
+            'SELECT ROUND(AVG(score))::integer AS average_score, COUNT(id)::integer AS attempts_count FROM quiz_attempts WHERE student_id = $1 AND quiz_id = $2',
+            [studentId, quizId]
+        );
+        const { average_score: avgFromDb, attempts_count: countFromDb } = attemptsStatsRes.rows[0] || {};
+        const runningAverageScore = avgFromDb !== null && avgFromDb !== undefined ? avgFromDb : scorePercentage;
+        const attemptsCount = countFromDb || 1;
 
         await client.query('COMMIT');
         return {
             attemptId,
             score: scorePercentage,
+            averageScore: runningAverageScore,
+            attemptsCount: attemptsCount,
             correctCount,
             totalQuestions,
             xpGained: xpReward,
             newStreak,
             achievementsUnlocked,
             questionReview: processedResponses.map(r => ({
+                questionId: r.questionId,
                 content: r.content,
+                options: r.options,
+                selectedOptionId: r.selectedOptionId,
+                selectedOptionText: r.selectedOptionText,
+                correctOptionId: r.correctOptionId,
+                correctOptionText: r.correctOptionText,
                 isCorrect: r.isCorrect,
-                difficulty: r.difficulty,
-                correctOptionText: r.correctOptionText
+                difficulty: r.difficulty
             }))
         };
 

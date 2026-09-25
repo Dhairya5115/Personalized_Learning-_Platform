@@ -5,7 +5,7 @@ import api from '../services/api';
 import { 
     ArrowLeft, BookOpen, Plus, ClipboardList, Play, FileText, 
     Trash2, Sparkles, CheckCircle2, ChevronDown, ChevronUp, AlertCircle, HelpCircle,
-    Lock, Unlock, CreditCard, Bookmark
+    Lock, Unlock, CreditCard, Bookmark, Eye
 } from 'lucide-react';
 
 function TopicNode({ topic, index, isStudent, isEnrolled = true, onSelectQuiz, onSelectMaterial, role, onReloadTopics, onAskTutor }) {
@@ -442,21 +442,39 @@ function TopicNode({ topic, index, isStudent, isEnrolled = true, onSelectQuiz, o
         }
     };
 
+    const handleToggleQuizActive = async (quizId, currentActive) => {
+        const nextState = currentActive === undefined ? false : !currentActive;
+        // Optimistic UI update
+        setQuizzes(prev => prev.map(q => q.id === quizId ? { ...q, is_active: nextState } : q));
+        try {
+            await api.toggleQuizActive(quizId, nextState);
+            if (window.showToast) {
+                window.showToast(`Quiz marked as ${nextState ? 'Active' : 'Inactive'}`, 'success');
+            }
+        } catch (err) {
+            // Rollback on error
+            setQuizzes(prev => prev.map(q => q.id === quizId ? { ...q, is_active: currentActive } : q));
+            if (window.showToast) {
+                window.showToast(err.message || 'Failed to update quiz status', 'error');
+            }
+        }
+    };
+
     return (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden transition-all duration-200">
+        <div className="bg-[#ffffff] border border-[#edebe3] rounded-2xl shadow-sm overflow-hidden transition-all duration-200">
             <div 
                 onClick={() => setIsExpanded(!isExpanded)}
-                className="p-5 flex items-center justify-between cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-850 transition-colors select-none"
+                className="p-5 flex items-center justify-between cursor-pointer hover:bg-[#f9f8f6] transition-colors select-none"
             >
                 <div className="flex items-center gap-4 flex-1">
-                    <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-xs font-bold text-slate-700 dark:text-slate-350 flex items-center justify-center flex-shrink-0">
+                    <div className="w-8 h-8 rounded-full bg-[#f9f8f6] border border-[#e1ddd1] text-xs font-bold text-[#00262b] flex items-center justify-center flex-shrink-0">
                         {index + 1}
                     </div>
                     <div className="flex-1">
-                        <h3 className="font-semibold text-slate-850 dark:text-slate-100 text-base leading-snug">
+                        <h3 className="font-extrabold text-[#00262b] text-base leading-snug">
                             {topic.title}
                         </h3>
-                        <p className="text-xs text-slate-450 dark:text-slate-500 mt-1 line-clamp-1">
+                        <p className="text-xs text-[#52716c] mt-1 line-clamp-1">
                             {topic.description || 'No topic details listed.'}
                         </p>
                     </div>
@@ -466,7 +484,7 @@ function TopicNode({ topic, index, isStudent, isEnrolled = true, onSelectQuiz, o
                     {role === 'TEACHER' && (
                         <button 
                             onClick={() => setShowDeleteTopicModal(true)}
-                            className="text-rose-500 hover:text-rose-700 dark:hover:text-rose-400 p-1 transition-colors mr-1"
+                            className="text-[#d64000] hover:text-[#00262b] p-1 transition-colors mr-1"
                             title="Delete Topic"
                         >
                             <Trash2 size={15} />
@@ -474,7 +492,7 @@ function TopicNode({ topic, index, isStudent, isEnrolled = true, onSelectQuiz, o
                     )}
                     <button 
                         onClick={() => setIsExpanded(!isExpanded)} 
-                        className="text-slate-400 hover:text-slate-655 dark:hover:text-slate-200 transition-colors p-1"
+                        className="text-[#52716c] hover:text-[#00262b] transition-colors p-1"
                     >
                         {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                     </button>
@@ -482,33 +500,33 @@ function TopicNode({ topic, index, isStudent, isEnrolled = true, onSelectQuiz, o
             </div>
 
             {isExpanded && (
-                <div className="p-5 border-t border-slate-100 dark:border-slate-800/80 bg-slate-50/20 dark:bg-slate-950/10 space-y-6">
+                <div className="p-5 border-t border-[#f3f1ed] bg-[#ffffff] space-y-6">
                     {isStudent && (
-                        <div className="flex items-center justify-between text-xs text-slate-400 bg-white dark:bg-slate-900 border border-slate-200/50 dark:border-slate-800/50 rounded-xl p-3 shadow-xs">
-                            <span className="font-medium">Course Completed</span>
+                        <div className="flex items-center justify-between text-xs text-[#52716c] bg-[#f9f8f6] border border-[#edebe3] rounded-xl p-3 shadow-xs">
+                            <span className="font-bold text-[#00262b]">Course Completed</span>
                             <div className="flex items-center gap-3 w-1/2">
-                                <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                <div className="h-2 w-full bg-[#f3f1ed] border border-[#edebe3] rounded-full overflow-hidden">
                                     <div 
-                                        className="h-full bg-indigo-600 dark:bg-indigo-500 rounded-full transition-all duration-300"
+                                        className="h-full bg-[#04c5e7] rounded-full transition-all duration-300"
                                         style={{ width: `${topic.completion_percentage || 0}%` }}
                                     />
                                 </div>
-                                <span className="font-semibold text-slate-700 dark:text-slate-300">{topic.completion_percentage || 0}%</span>
+                                <span className="font-extrabold text-[#00262b]">{topic.completion_percentage || 0}%</span>
                             </div>
                         </div>
                     )}
 
                     {isStudent && (
-                        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-indigo-50/20 dark:bg-indigo-950/10 border border-indigo-100/40 dark:border-indigo-900/20 p-4 rounded-2xl">
-                            <div className="flex items-center gap-2.5 text-xs text-slate-500 dark:text-slate-400 text-left">
-                                <HelpCircle size={15} className="text-indigo-500 shrink-0" />
+                        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-[#f9f8f6] border border-[#edebe3] p-4 rounded-2xl">
+                            <div className="flex items-center gap-2.5 text-xs text-[#52716c] text-left">
+                                <HelpCircle size={16} className="text-[#04c5e7] shrink-0" />
                                 <span>Stuck on a concept in this topic? Ask the AI Tutor for help.</span>
                             </div>
                             <button
                                 onClick={() => onAskTutor && onAskTutor(topic.id, topic.title)}
-                                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-550 text-white rounded-xl text-xs font-bold transition-all shadow-xs shrink-0 self-stretch sm:self-auto justify-center"
+                                className="btn-primary !text-xs !py-2 !px-4 inline-flex items-center gap-1.5 shrink-0 self-stretch sm:self-auto justify-center"
                             >
-                                <Sparkles size={12} className="text-white" />
+                                <Sparkles size={12} className="text-[#04c5e7]" />
                                 <span>Ask AI Tutor</span>
                             </button>
                         </div>
@@ -516,11 +534,11 @@ function TopicNode({ topic, index, isStudent, isEnrolled = true, onSelectQuiz, o
 
                     <div className="space-y-3">
                         <div className="flex justify-between items-center">
-                            <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">📚 Learning Materials</h4>
+                            <h4 className="text-xs font-bold uppercase tracking-wider text-[#52716c]">📚 Learning Materials</h4>
                             {role === 'TEACHER' && (
                                 <button 
                                     onClick={() => setAddingMaterial(!addingMaterial)} 
-                                    className="text-xs text-indigo-600 dark:text-indigo-400 font-bold hover:underline"
+                                    className="text-xs text-[#04c5e7] hover:text-[#00262b] font-bold hover:underline"
                                 >
                                     {addingMaterial ? 'Cancel' : '+ Add Material'}
                                 </button>
@@ -528,9 +546,9 @@ function TopicNode({ topic, index, isStudent, isEnrolled = true, onSelectQuiz, o
                         </div>
 
                         {addingMaterial && (
-                            <form onSubmit={handleAddMaterial} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-xl space-y-3">
-                                <h5 className="font-bold text-xs text-slate-700 dark:text-slate-300">Add New Material</h5>
-                                {matError && <p className="text-rose-500 text-xs">{matError}</p>}
+                            <form onSubmit={handleAddMaterial} className="bg-[#f9f8f6] border border-[#edebe3] p-4 rounded-xl space-y-3">
+                                <h5 className="font-bold text-xs text-[#00262b]">Add New Material</h5>
+                                {matError && <p className="text-[#d64000] text-xs font-bold">{matError}</p>}
                                 
                                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                     <input 
@@ -643,7 +661,7 @@ function TopicNode({ topic, index, isStudent, isEnrolled = true, onSelectQuiz, o
                         )}
                     </div>
 
-                    {(isStudent || role === 'TEACHER') && (
+                    {(isStudent || role === 'TEACHER' || role === 'TA') && (
                         <div className="space-y-3 pt-3 border-t border-slate-100 dark:border-slate-800/80">
                             <div className="flex justify-between items-center">
                                 <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">📝 Adaptive Quizzes</h4>
@@ -706,18 +724,29 @@ function TopicNode({ topic, index, isStudent, isEnrolled = true, onSelectQuiz, o
                             {loading ? (
                                 <span className="text-xs text-slate-400">Loading quizzes...</span>
                             ) : quizzes.length === 0 ? (
-                                <p className="text-xs text-slate-400 dark:text-slate-500 italic p-3 bg-white dark:bg-slate-900 border border-slate-200/50 dark:border-slate-800/50 rounded-xl">No active quizzes built for this topic.</p>
+                                <p className="text-xs text-[#52716c] italic p-4 bg-[#ffffff] border border-[#edebe3] rounded-2xl shadow-sm">No active quizzes built for this topic.</p>
                             ) : (
                                 <div className="space-y-3">
                                     {quizzes.map(quiz => (
-                                        <div key={quiz.id} className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 rounded-xl p-4 flex flex-col gap-4 shadow-xs">
-                                            <div className="flex items-center justify-between gap-4">
+                                        <div key={quiz.id} className="bg-[#ffffff] border border-[#edebe3] rounded-2xl p-4 flex flex-col gap-4 shadow-sm">
+                                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                                                 <div>
-                                                    <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
-                                                        {quiz.title}
-                                                    </span>
-                                                    <span className="block text-[10px] text-slate-400 dark:text-slate-500 font-semibold mt-0.5">
-                                                        Passing Criteria: {quiz.passing_score}% accuracy
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-xs font-extrabold text-[#00262b]">
+                                                            {quiz.title}
+                                                        </span>
+                                                        {role === 'TEACHER' && (
+                                                            <span className={`inline-block px-2 py-0.5 rounded-[94px] text-[10px] font-bold uppercase tracking-wider border ${
+                                                                quiz.is_active !== false
+                                                                    ? 'bg-[#f3f1ed] text-[#00262b] border-[#04c5e7]'
+                                                                    : 'bg-[#f3f1ed] text-[#52716c] border-[#e1ddd1]'
+                                                            }`}>
+                                                                {quiz.is_active !== false ? 'Active' : 'Inactive'}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <span className="block text-[10px] text-[#52716c] font-semibold mt-0.5">
+                                                        Passing Criteria: {quiz.passing_score}%
                                                     </span>
                                                 </div>
                                                 <div className="flex items-center gap-3">
@@ -730,39 +759,82 @@ function TopicNode({ topic, index, isStudent, isEnrolled = true, onSelectQuiz, o
                                                                 }
                                                                 onSelectQuiz(quiz);
                                                             }} 
-                                                            className={`inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold shadow-sm transition-colors ${
-                                                                isEnrolled 
-                                                                    ? "bg-indigo-600 hover:bg-indigo-500 text-white" 
-                                                                    : "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border border-slate-200/50 dark:border-slate-700/50 cursor-not-allowed"
+                                                            className={`btn-primary !text-xs !py-2 !px-4 inline-flex items-center justify-center gap-1.5 ${
+                                                                !isEnrolled ? "opacity-60 cursor-not-allowed" : ""
                                                             }`} 
                                                         >
                                                             {!isEnrolled && <Lock size={12} />}
                                                             <span>Take Quiz</span>
                                                         </button>
                                                     )}
-                                                    {role === 'TEACHER' && (
+                                                    {role === 'TA' && (
                                                         <div className="flex items-center gap-2">
+                                                            <button
+                                                                onClick={() => onSelectQuiz(quiz)}
+                                                                className="btn-ghost !text-xs !py-1.5 !px-3 border border-[#edebe3] hover:border-[#04c5e7] inline-flex items-center gap-1.5 text-[#00262b]"
+                                                                title="View quiz content and questions (Read-Only)"
+                                                            >
+                                                                <Eye size={13} className="text-[#04c5e7]" />
+                                                                <span>View Quiz</span>
+                                                            </button>
+                                                            <span className="text-[10px] font-bold px-2.5 py-1 bg-[#f3f1ed] text-[#52716c] rounded-[94px] border border-[#e1ddd1] uppercase tracking-wider">
+                                                                View Only
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                    {role === 'TEACHER' && (
+                                                        <div className="flex items-center gap-3">
+                                                            {/* Accessible Switch Toggle */}
+                                                            <div className="flex items-center gap-2 pr-2 border-r border-[#edebe3]">
+                                                                <button
+                                                                    type="button"
+                                                                    role="switch"
+                                                                    aria-checked={quiz.is_active !== false}
+                                                                    onClick={() => handleToggleQuizActive(quiz.id, quiz.is_active !== false)}
+                                                                    onKeyDown={(e) => {
+                                                                        if (e.key === ' ' || e.key === 'Enter') {
+                                                                            e.preventDefault();
+                                                                            handleToggleQuizActive(quiz.id, quiz.is_active !== false);
+                                                                        }
+                                                                    }}
+                                                                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-[#04c5e7] focus:ring-offset-2 ${
+                                                                        quiz.is_active !== false ? 'bg-[#00262b]' : 'bg-[#edebe3]'
+                                                                    }`}
+                                                                    title={`Quiz is ${quiz.is_active !== false ? 'Active' : 'Inactive'}. Click to toggle.`}
+                                                                >
+                                                                    <span className="sr-only">Toggle active state</span>
+                                                                    <span
+                                                                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-[#ffffff] shadow-sm ring-0 transition duration-200 ease-in-out ${
+                                                                            quiz.is_active !== false ? 'translate-x-5' : 'translate-x-0'
+                                                                        }`}
+                                                                    />
+                                                                </button>
+                                                                <span className="text-[11px] font-extrabold text-[#00262b]">
+                                                                    {quiz.is_active !== false ? 'Active' : 'Inactive'}
+                                                                </span>
+                                                            </div>
+
                                                             <button 
                                                                 onClick={() => {
                                                                     setSelectedQuizForQuestion(selectedQuizForQuestion === quiz.id ? null : quiz.id);
                                                                     setQError('');
                                                                 }} 
-                                                                className="px-3 py-1.5 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200/50 dark:border-slate-700/50 rounded-xl text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-750 transition-colors"
+                                                                className="btn-ghost !text-xs !py-1.5 !px-3"
                                                             >
                                                                 {selectedQuizForQuestion === quiz.id ? 'Cancel' : '➕ Question'}
                                                             </button>
                                                             <button 
                                                                 onClick={() => handleViewQuestions(quiz.id)}
-                                                                className="px-3 py-1.5 bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200/50 dark:border-slate-700/50 rounded-xl text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-750 transition-colors"
+                                                                className="btn-ghost !text-xs !py-1.5 !px-3"
                                                             >
-                                                                {viewingQuestionsQuizId === quiz.id ? 'Hide Questions' : '👁️ Questions'}
+                                                                {viewingQuestionsQuizId === quiz.id ? 'Hide' : '👁️ Questions'}
                                                             </button>
                                                             <button 
                                                                 onClick={() => setDeleteQuizTarget(quiz)} 
-                                                                className="p-1.5 text-slate-400 hover:text-rose-500 transition-colors"
+                                                                className="p-1.5 text-[#52716c] hover:text-[#d64000] transition-colors"
                                                                 title="Delete Quiz"
                                                             >
-                                                                <Trash2 size={13} />
+                                                                <Trash2 size={14} />
                                                             </button>
                                                         </div>
                                                     )}
@@ -1225,7 +1297,7 @@ export default function CourseView({ course: courseProp, onBack: onBackProp, onS
     const [courseLoading, setCourseLoading] = useState(!courseProp && !!paramCourseId);
 
     const course = courseProp || fetchedCourse;
-    const onBack = onBackProp || (() => navigate('/courses'));
+    const onBack = onBackProp || (() => navigate(user?.role === 'TA' ? '/ta-catalog' : '/courses'));
     const onSelectQuiz = onSelectQuizProp || ((quiz) => navigate(`/quiz/${quiz.id}`));
     const onAskTutor = onAskTutorProp || ((cId, cTitle, tId, tTitle) => navigate('/doubt-solver'));
 
@@ -1411,31 +1483,46 @@ export default function CourseView({ course: courseProp, onBack: onBackProp, onS
         <div className="space-y-6 max-w-5xl mx-auto">
             <button 
                 onClick={onBack} 
-                className="inline-flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-350 border border-slate-200/50 dark:border-slate-800/80 rounded-xl text-xs font-semibold hover:bg-slate-50 dark:hover:bg-slate-850 transition-colors shadow-xs"
+                className="btn-ghost !text-xs !py-2 !px-4 inline-flex items-center gap-2"
             >
                 <ArrowLeft size={16} />
                 <span>Back to Catalog</span>
             </button>
 
-            <div className="bg-gradient-to-br from-indigo-50/60 via-white to-slate-50/60 dark:from-indigo-950/20 dark:via-slate-900 dark:to-slate-950 border border-slate-200/80 dark:border-slate-800/80 rounded-2xl p-6 md:p-8 shadow-sm flex flex-col md:flex-row md:items-start justify-between gap-6">
+            <div className="bg-[#ffffff] border border-[#edebe3] rounded-2xl p-6 md:p-8 shadow-sm flex flex-col md:flex-row md:items-start justify-between gap-6">
                 <div className="flex-1">
-                    <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-white leading-tight">
+                    <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-[#00262b] leading-tight">
                         {course.title}
                     </h1>
-                    <p className="mt-4 text-sm text-slate-500 dark:text-slate-400 leading-relaxed max-w-3xl">
+                    <p className="mt-4 text-sm text-[#52716c] leading-relaxed max-w-3xl">
                         {course.description || 'No description provided for this course.'}
                     </p>
                     
                     {user.role === 'STUDENT' && (
                         <div className="mt-6 flex items-center gap-2">
-                            <span className="text-xs text-slate-400">Class Progress:</span>
+                            <span className="text-xs text-[#52716c]">Class Progress:</span>
                             {isEnrolled ? (
-                                <span className="bg-indigo-50 text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-400 text-[10px] font-bold px-2.5 py-1 rounded-xl uppercase tracking-wider">
+                                <span className="bg-[#f3f1ed] text-[#00262b] border border-[#04c5e7] text-[10px] font-bold px-3 py-1 rounded-[94px] uppercase tracking-wider">
                                     Active Student
                                 </span>
                             ) : (
-                                <span className="bg-amber-55/20 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400 text-[10px] font-bold px-2.5 py-1 rounded-xl uppercase tracking-wider">
+                                <span className="bg-[#f3f1ed] text-[#52716c] border border-[#e1ddd1] text-[10px] font-bold px-3 py-1 rounded-[94px] uppercase tracking-wider">
                                     Preview Mode
+                                </span>
+                            )}
+                        </div>
+                    )}
+
+                    {user.role === 'TA' && (
+                        <div className="mt-6 flex items-center gap-2">
+                            <span className="text-xs text-[#52716c]">TA Access:</span>
+                            {isEnrolled ? (
+                                <span className="bg-[#f3f1ed] text-[#00262b] border border-[#04c5e7] text-[10px] font-bold px-3 py-1 rounded-[94px] uppercase tracking-wider">
+                                    Approved Teaching Assistant (Read-Only Course Access)
+                                </span>
+                            ) : (
+                                <span className="bg-[#f3f1ed] text-[#52716c] border border-[#e1ddd1] text-[10px] font-bold px-3 py-1 rounded-[94px] uppercase tracking-wider">
+                                    Preview Mode (TA Approval Required)
                                 </span>
                             )}
                         </div>
@@ -1451,13 +1538,13 @@ export default function CourseView({ course: courseProp, onBack: onBackProp, onS
                                 }
                                 onAskTutor(course.id, course.title);
                             }}
-                            className={`inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-xs shrink-0 ${
+                            className={`btn-primary !text-xs !py-2.5 !px-5 inline-flex items-center justify-center gap-2 ${
                                 isEnrolled 
-                                    ? "bg-indigo-600 hover:bg-indigo-550 text-white" 
-                                    : "bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed border border-slate-200/50 dark:border-slate-700/50"
+                                    ? "" 
+                                    : "opacity-50 cursor-not-allowed"
                             }`}
                         >
-                            <Sparkles size={14} />
+                            <Sparkles size={14} className="text-[#04c5e7]" />
                             <span>Ask AI Tutor about Course</span>
                         </button>
                         
@@ -1465,7 +1552,7 @@ export default function CourseView({ course: courseProp, onBack: onBackProp, onS
                             <button
                                 onClick={handleEnroll}
                                 disabled={enrollLoading}
-                                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-650 hover:bg-emerald-550 disabled:bg-emerald-450 text-white rounded-xl text-xs font-bold transition-all shadow-xs shrink-0"
+                                className="btn-primary !text-xs !py-2.5 !px-5 inline-flex items-center justify-center gap-2"
                             >
                                 <CreditCard size={14} />
                                 <span>{enrollLoading ? "Opening..." : parseFloat(course.price) === 0 ? "Enroll for Free" : `Buy Course - ₹${course.price}`}</span>
@@ -1476,7 +1563,7 @@ export default function CourseView({ course: courseProp, onBack: onBackProp, onS
                 {user.role === 'TEACHER' && (
                     <button
                         onClick={() => setShowDeleteCourseModal(true)}
-                        className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-500/10 dark:hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-100/50 dark:border-rose-900/30 rounded-xl text-xs font-bold transition-all shadow-xs shrink-0 self-start md:self-auto"
+                        className="btn-filled !text-xs !py-2.5 !px-4 inline-flex items-center justify-center gap-2"
                     >
                         <Trash2 size={14} />
                         <span>Delete Course</span>
@@ -1488,16 +1575,16 @@ export default function CourseView({ course: courseProp, onBack: onBackProp, onS
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 items-start">
                 
                 {/* Topics Accordion List */}
-                <div className="lg:col-span-3 space-y-4">
-                    <h2 className="text-sm font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2 flex items-center gap-2">
-                        <ClipboardList size={16} className="text-indigo-600 dark:text-indigo-400" />
+                <div className="lg:col-span-3 space-y-4j">
+                    <h2 className="text-sm font-bold uppercase tracking-wider text-[#52716c] mb-2 flex items-center gap-2">
+                        <ClipboardList size={16} className="text-[#04c5e7]" />
                         <span>Curriculum Outline</span>
                     </h2>
 
                     {loading ? (
-                        <div className="text-slate-400 text-sm">Loading syllabus nodes...</div>
+                        <div className="text-[#52716c] text-sm">Loading syllabus nodes...</div>
                     ) : topics.length === 0 ? (
-                        <div className="bg-white dark:bg-slate-900 border border-slate-200/85 dark:border-slate-800 rounded-2xl p-8 text-center text-slate-500 dark:text-slate-400 text-sm">
+                        <div className="bg-[#ffffff] border border-[#edebe3]  rounded-2xl p-8 text-center text-[#52716c] text-sm shadow-sm">
                             No topics have been structured for this syllabus yet.
                         </div>
                     ) : (
@@ -1522,30 +1609,30 @@ export default function CourseView({ course: courseProp, onBack: onBackProp, onS
 
                 {/* Add Topic form (Teacher only) */}
                 {user.role === 'TEACHER' && (
-                    <div className="lg:col-span-2 bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
-                        <h2 className="text-base font-bold text-slate-800 dark:text-slate-200 mb-6 flex items-center gap-2">
-                            <Plus size={18} className="text-indigo-600 dark:text-indigo-400" />
+                    <div className="lg:col-span-2 bg-[#ffffff] border border-[#edebe3] rounded-2xl p-6 shadow-sm">
+                        <h2 className="text-base font-extrabold text-[#00262b] mb-6 flex items-center gap-2">
+                            <Plus size={18} className="text-[#04c5e7]" />
                             <span>Add Curriculum Topic</span>
                         </h2>
 
                         {error && (
-                            <div className="bg-rose-500/10 text-rose-500 border border-rose-500/20 p-3 rounded-xl text-xs mb-4">
+                            <div className="bg-[#f3f1ed] text-[#d64000] border border-[#d64000]/30 p-3 rounded-xl text-xs mb-4 font-bold">
                                 {error}
                             </div>
                         )}
 
                         {success && (
-                            <div className="bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 p-3 rounded-xl text-xs mb-4">
+                            <div className="bg-[#f3f1ed] text-[#00262b] border border-[#04c5e7] p-3 rounded-xl text-xs mb-4 font-bold">
                                 Topic node added successfully!
                             </div>
                         )}
 
                         <form onSubmit={handleCreateTopic} className="space-y-4">
                             <div>
-                                <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2">Topic Title</label>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-[#52716c] mb-2">Topic Title</label>
                                 <input 
                                     type="text" 
-                                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-850 dark:text-slate-100 focus:outline-none focus:border-indigo-500" 
+                                    className="w-full bg-[#ffffff] border border-[#e1ddd1] rounded-xl px-4 py-2.5 text-sm text-[#00262b] focus:outline-none focus:border-[#04c5e7]" 
                                     placeholder="e.g. Memory Layout"
                                     value={topicTitle}
                                     onChange={(e) => setTopicTitle(e.target.value)}
@@ -1554,10 +1641,10 @@ export default function CourseView({ course: courseProp, onBack: onBackProp, onS
                             </div>
 
                             <div>
-                                <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2">Sequence Order</label>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-[#52716c] mb-2">Sequence Order</label>
                                 <input 
                                     type="number" 
-                                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-850 dark:text-slate-100 focus:outline-none focus:border-indigo-500" 
+                                    className="w-full bg-[#ffffff] border border-[#e1ddd1] rounded-xl px-4 py-2.5 text-sm text-[#00262b] focus:outline-none focus:border-[#04c5e7]" 
                                     value={topicOrder}
                                     onChange={(e) => setTopicOrder(e.target.value)}
                                     min="1"
@@ -1566,9 +1653,9 @@ export default function CourseView({ course: courseProp, onBack: onBackProp, onS
                             </div>
 
                             <div>
-                                <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 mb-2">Description</label>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-[#52716c] mb-2">Description</label>
                                 <textarea 
-                                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-850 dark:text-slate-100 focus:outline-none focus:border-indigo-500" 
+                                    className="w-full bg-[#ffffff] border border-[#e1ddd1] rounded-xl px-4 py-2.5 text-sm text-[#00262b] focus:outline-none focus:border-[#04c5e7]" 
                                     rows="3"
                                     placeholder="Overview..."
                                     value={topicDesc}
@@ -1576,7 +1663,7 @@ export default function CourseView({ course: courseProp, onBack: onBackProp, onS
                                 />
                             </div>
 
-                            <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl py-2.5 text-sm font-semibold transition-colors">
+                            <button type="submit" className="btn-primary w-full mt-2">
                                 Publish Topic Node
                             </button>
                         </form>

@@ -8,13 +8,18 @@ const { recalculateProgress } = require('../engines/progress_engine');
  */
 async function getAllCourses(req, res) {
     try {
+        const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 50));
+        const offset = Math.max(0, parseInt(req.query.offset, 10) || 0);
+
         const queryText = `
-            SELECT c.*, u.first_name as teacher_first_name, u.last_name as teacher_last_name
+            SELECT c.id, c.teacher_id, c.title, c.description, c.price, c.created_at,
+                   u.first_name as teacher_first_name, u.last_name as teacher_last_name
             FROM courses c
             LEFT JOIN users u ON c.teacher_id = u.id
             ORDER BY c.created_at DESC
+            LIMIT $1 OFFSET $2
         `;
-        const result = await db.query(queryText);
+        const result = await db.query(queryText, [limit, offset]);
         return res.json(result.rows);
     } catch (err) {
         console.error('Get all courses error:', err.message);
@@ -28,7 +33,7 @@ async function getAllCourses(req, res) {
 async function getCourseById(req, res) {
     const { id } = req.params;
     try {
-        const result = await db.query('SELECT * FROM courses WHERE id = $1', [id]);
+        const result = await db.query('SELECT id, teacher_id, title, description, price, created_at FROM courses WHERE id = $1', [id]);
         if (result.rows.length === 0) {
             return res.status(404).json({ error: 'Course not found' });
         }
@@ -80,7 +85,7 @@ async function getTopicsByCourse(req, res) {
 
         if (userRole === 'STUDENT') {
             queryText = `
-                SELECT t.*, 
+                SELECT t.id, t.course_id, t.title, t.description, t.sequence_order, t.created_at,
                        COALESCE(p.skill_score, 0) as skill_score, 
                        COALESCE(p.completion_percentage, 0) as completion_percentage
                 FROM topics t
@@ -91,7 +96,8 @@ async function getTopicsByCourse(req, res) {
             queryParams = [courseId, userId];
         } else {
             queryText = `
-                SELECT t.*, 0 as skill_score, 0 as completion_percentage
+                SELECT t.id, t.course_id, t.title, t.description, t.sequence_order, t.created_at,
+                       0 as skill_score, 0 as completion_percentage
                 FROM topics t
                 WHERE t.course_id = $1
                 ORDER BY t.sequence_order ASC
@@ -199,13 +205,19 @@ async function enrollInCourse(req, res) {
 async function getEnrolledCourses(req, res) {
     const studentId = req.user.id;
     try {
+        const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 50));
+        const offset = Math.max(0, parseInt(req.query.offset, 10) || 0);
+
         const queryText = `
-            SELECT c.*, e.payment_status, e.enrolled_at 
+            SELECT c.id, c.teacher_id, c.title, c.description, c.price, c.created_at,
+                   e.payment_status, e.enrolled_at 
             FROM enrollments e
             JOIN courses c ON e.course_id = c.id
             WHERE e.student_id = $1
+            ORDER BY e.enrolled_at DESC
+            LIMIT $2 OFFSET $3
         `;
-        const result = await db.query(queryText, [studentId]);
+        const result = await db.query(queryText, [studentId, limit, offset]);
         return res.json(result.rows);
     } catch (err) {
         console.error('Get enrolled courses error:', err.message);
@@ -224,7 +236,7 @@ async function getMaterialsByTopic(req, res) {
 
         if (userRole === 'STUDENT') {
             queryText = `
-                SELECT m.*, 
+                SELECT m.id, m.topic_id, m.title, m.type, m.file_url, m.is_premium, m.price, m.created_at,
                        (sr.id IS NOT NULL) AS is_bookmarked,
                        (cm.id IS NOT NULL) AS is_completed,
                        (
@@ -246,7 +258,8 @@ async function getMaterialsByTopic(req, res) {
             queryParams = [topicId, userId];
         } else {
             queryText = `
-                SELECT m.*, false AS is_bookmarked, false AS is_completed, true AS is_unlocked
+                SELECT m.id, m.topic_id, m.title, m.type, m.file_url, m.is_premium, m.price, m.created_at,
+                       false AS is_bookmarked, false AS is_completed, true AS is_unlocked
                 FROM materials m
                 WHERE m.topic_id = $1
                 ORDER BY m.created_at ASC

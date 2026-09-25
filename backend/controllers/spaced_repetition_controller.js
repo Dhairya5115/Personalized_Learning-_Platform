@@ -9,6 +9,9 @@ async function getOverdueReviews(req, res) {
     const todayStr = new Date().toISOString().split('T')[0];
 
     try {
+        const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 50));
+        const offset = Math.max(0, parseInt(req.query.offset, 10) || 0);
+
         const queryText = `
             SELECT sr.*, m.title as material_title, m.type as material_type, m.file_url, t.title as topic_title
             FROM spaced_repetition sr
@@ -16,8 +19,9 @@ async function getOverdueReviews(req, res) {
             JOIN topics t ON m.topic_id = t.id
             WHERE sr.student_id = $1 AND sr.next_review_date <= $2
             ORDER BY sr.next_review_date ASC
+            LIMIT $3 OFFSET $4
         `;
-        const result = await db.query(queryText, [studentId, todayStr]);
+        const result = await db.query(queryText, [studentId, todayStr, limit, offset]);
         return res.json(result.rows);
     } catch (err) {
         console.error('Fetch overdue reviews error:', err.message);
@@ -44,7 +48,7 @@ async function submitReview(req, res) {
     try {
         // Fetch existing spaced repetition record
         const cardRes = await db.query(
-            'SELECT * FROM spaced_repetition WHERE student_id = $1 AND material_id = $2',
+            'SELECT id, repetitions, interval_days, easiness_factor FROM spaced_repetition WHERE student_id = $1 AND material_id = $2',
             [studentId, materialId]
         );
 

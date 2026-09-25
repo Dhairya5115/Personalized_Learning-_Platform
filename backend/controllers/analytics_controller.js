@@ -138,7 +138,10 @@ async function getTeacherAnalytics(req, res) {
             [teacherId]
         );
 
-        // 4. Student grades and progress table
+        // 4. Student grades and progress table (bounded with limit & offset)
+        const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 50));
+        const offset = Math.max(0, parseInt(req.query.offset, 10) || 0);
+
         const studentGradesRes = await db.query(
             `SELECT u.id as student_id, u.first_name, u.last_name, u.email, u.xp_points,
                     COUNT(DISTINCT e.course_id) as course_count,
@@ -151,8 +154,9 @@ async function getTeacherAnalytics(req, res) {
              LEFT JOIN quiz_attempts qa ON qa.student_id = u.id AND qa.quiz_id = q.id
              WHERE c.teacher_id = $1
              GROUP BY u.id, u.first_name, u.last_name, u.email, u.xp_points
-             ORDER BY u.xp_points DESC`,
-            [teacherId]
+             ORDER BY u.xp_points DESC
+             LIMIT $2 OFFSET $3`,
+            [teacherId, limit, offset]
         );
 
         return res.json({

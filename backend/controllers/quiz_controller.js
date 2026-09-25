@@ -12,11 +12,19 @@ async function getNextAdaptiveQuestion(req, res) {
         return res.status(400).json({ error: 'quizId is required' });
     }
 
+    // Role check: Only students can take quizzes
+    if (req.user.role === 'TA' || req.user.role !== 'STUDENT') {
+        return res.status(403).json({ error: 'Teaching Assistants cannot attempt or take quizzes.' });
+    }
+
     try {
-        // Find topic id for the quiz
-        const quizRes = await db.query('SELECT topic_id FROM quizzes WHERE id = $1', [quizId]);
+        // Find topic id and is_active status for the quiz
+        const quizRes = await db.query('SELECT topic_id, is_active FROM quizzes WHERE id = $1', [quizId]);
         if (quizRes.rows.length === 0) {
             return res.status(404).json({ error: 'Quiz not found' });
+        }
+        if (req.user.role === 'STUDENT' && quizRes.rows[0].is_active === false) {
+            return res.status(403).json({ error: 'This practice quiz is currently inactive and cannot be attempted.' });
         }
         const topicId = quizRes.rows[0].topic_id;
 
@@ -59,11 +67,19 @@ async function submitQuiz(req, res) {
         return res.status(400).json({ error: 'quizId and responses array are required' });
     }
 
+    // Role check: Only students can submit quiz attempts
+    if (req.user.role === 'TA' || req.user.role !== 'STUDENT') {
+        return res.status(403).json({ error: 'Teaching Assistants cannot attempt or submit quizzes.' });
+    }
+
     try {
-        // Find topic id for the quiz
-        const quizRes = await db.query('SELECT topic_id FROM quizzes WHERE id = $1', [quizId]);
+        // Find topic id and is_active for the quiz
+        const quizRes = await db.query('SELECT topic_id, is_active FROM quizzes WHERE id = $1', [quizId]);
         if (quizRes.rows.length === 0) {
             return res.status(404).json({ error: 'Quiz not found' });
+        }
+        if (req.user.role === 'STUDENT' && quizRes.rows[0].is_active === false) {
+            return res.status(403).json({ error: 'This practice quiz is currently inactive.' });
         }
         const topicId = quizRes.rows[0].topic_id;
 
@@ -173,8 +189,14 @@ async function addQuestionToQuiz(req, res) {
  */
 async function getQuizzesByTopic(req, res) {
     const { topicId } = req.params;
+    const userRole = req.user ? req.user.role : null;
     try {
-        const result = await db.query('SELECT * FROM quizzes WHERE topic_id = $1', [topicId]);
+        let queryText = 'SELECT id, topic_id, title, passing_score, is_active, created_at FROM quizzes WHERE topic_id = $1 ORDER BY created_at ASC';
+        let queryParams = [topicId];
+        if (userRole === 'STUDENT') {
+            queryText = 'SELECT id, topic_id, title, passing_score, is_active, created_at FROM quizzes WHERE topic_id = $1 AND is_active = true ORDER BY created_at ASC';
+        }
+        const result = await db.query(queryText, queryParams);
         return res.json(result.rows);
     } catch (err) {
         console.error('Get quizzes by topic error:', err.message);
@@ -182,17 +204,61 @@ async function getQuizzesByTopic(req, res) {
     }
 }
 
+/**
+ * Toggle Quiz Active / Inactive state (Teacher / Admin)
+ */
+async function toggleQuizActive(req, res) {
+    const { quizId } = req.params;
+    const { isActive } = req.body;
+    const teacherId = req.user.id;
+
+    try {
+        // Verify quiz exists and teacher owns the course
+        const quizCheck = await db.query(`
+            SELECT q.id, q.is_active, c.teacher_id 
+            FROM quizzes q
+            JOIN topics t ON q.topic_id = t.id
+            JOIN courses c ON t.course_id = c.id
+            WHERE q.id = $1
+        `, [quizId]);
+
+        if (quizCheck.rows.length === 0) {
+            return res.status(404).json({ error: 'Quiz not found' });
+        }
+
+        if (quizCheck.rows[0].teacher_id !== teacherId && req.user.role !== 'ADMIN') {
+            return res.status(403).json({ error: 'Unauthorized to modify this quiz status' });
+        }
+
+        const newActiveState = typeof isActive === 'boolean' ? isActive : !quizCheck.rows[0].is_active;
+
+        const result = await db.query(
+            `UPDATE quizzes SET is_active = $1 WHERE id = $2 RETURNING *`,
+            [newActiveState, quizId]
+        );
+
+        return res.json({
+            success: true,
+            message: `Quiz marked as ${newActiveState ? 'active' : 'inactive'}.`,
+            quiz: result.rows[0]
+        });
+    } catch (err) {
+        console.error('Toggle quiz active error:', err.message);
+        return res.status(500).json({ error: 'Failed to update quiz active status' });
+    }
+}
+
 const QUIZ_GEN_SYSTEM_PROMPT = `
 You are an expert educational AI designed to generate adaptive, multiple-choice quizzes.
-You must return only a valid JSON object matching the requested structure, with no extra text or explanations.
+CRITICAL INSTRUCTION: You must output ONLY a valid JSON object. Do NOT include markdown code blocks, do NOT write \`\`\`json, and do NOT include any introductory or concluding text. Return pure JSON only.
 
 The output JSON object structure must be EXACTLY:
 {
-  "title": "Quiz Title (e.g. Master malloc() in C)",
+  "title": "Topic Quiz Title",
   "passingScore": 60,
   "questions": [
     {
-      "content": "Question content...",
+      "content": "Clear and specific question content?",
       "options": [
         {"id": "A", "text": "Option A text"},
         {"id": "B", "text": "Option B text"},
@@ -204,12 +270,55 @@ The output JSON object structure must be EXACTLY:
     }
   ]
 }
-Generate 8 to 10 questions (balanced across EASY, MEDIUM, and HARD). The difficulty field must be exactly "EASY", "MEDIUM", or "HARD".
+Generate 5 to 6 high-quality questions (balanced across EASY, MEDIUM, and HARD). The difficulty field must be exactly "EASY", "MEDIUM", or "HARD".
 Do NOT include trailing commas before closing brackets or braces.
 `;
 
 /**
+ * Defensively extracts and cleans JSON string from LLM output.
+ * Handles markdown fences, surrounding text, and trailing commas.
+ */
+function extractJsonFromLlmOutput(text) {
+    if (!text || typeof text !== 'string') return null;
+    let s = text.trim();
+
+    // 1. Strip markdown fences if present
+    s = s.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+
+    // 2. Find outermost matching braces { ... }
+    const firstBrace = s.indexOf('{');
+    const lastBrace = s.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+        s = s.substring(firstBrace, lastBrace + 1);
+    }
+
+    // 3. Remove trailing commas before closing braces/brackets
+    s = s.replace(/,\s*([\]}])/g, '$1');
+
+    return s;
+}
+
+/**
+ * Validates that parsed JSON complies with the required quiz schema.
+ */
+function validateQuizSchema(data) {
+    if (!data || typeof data !== 'object') return false;
+    if (!data.questions || !Array.isArray(data.questions) || data.questions.length === 0) return false;
+
+    for (const q of data.questions) {
+        if (!q.content || typeof q.content !== 'string' || q.content.trim() === '') return false;
+        if (!q.options || !Array.isArray(q.options) || q.options.length < 2) return false;
+        if (!q.correctOptionId) return false;
+        
+        const optionIds = q.options.map(opt => opt.id);
+        if (!optionIds.includes(q.correctOptionId)) return false;
+    }
+    return true;
+}
+
+/**
  * Automatically generate a quiz using OpenRouter AI based on topic details and materials
+ * Includes defensive extraction, schema validation, and automatic retries (up to 2 extra attempts).
  */
 async function generateAiQuiz(req, res) {
     const { topicId } = req.params;
@@ -261,61 +370,87 @@ async function generateAiQuiz(req, res) {
             requestModel = openrouterModel;
         }
 
-        const userPrompt = `Create a comprehensive quiz with 8 to 10 questions for the topic "${topic.topic_title}" under the course "${topic.course_title}".
+        const userPrompt = `Generate a 5 to 6 question adaptive practice quiz for the topic "${topic.topic_title}" in the course "${topic.course_title}".
 Course Description: "${topic.course_description || 'N/A'}"
 Topic Description: "${topic.topic_description || 'No description provided'}"
-Study materials available for this topic:
+Study materials for this topic:
 ${materialsList || 'No specific materials listed.'}
 
-Ensure the questions are accurate and directly relevant to both the overall course "${topic.course_title}" and the specific topic "${topic.topic_title}". All questions must have exactly 4 choices (A, B, C, D) and specify the correct option ID.`;
+CRITICAL: Return ONLY valid JSON matching the schema. Every question must have exactly 4 choices (A, B, C, D) and a valid correctOptionId.`;
 
-        console.log(`[AI Quiz Gen] Calling AI model ${requestModel} for topic: ${topic.topic_title} (Course: ${topic.course_title})`);
-        const response = await fetch(apiEndpoint, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({
-                model: requestModel,
-                messages: [
-                    { role: 'system', content: QUIZ_GEN_SYSTEM_PROMPT },
-                    { role: 'user', content: userPrompt }
-                ],
-                temperature: 0.7,
-                max_tokens: 3500,
-                response_format: { type: 'json_object' }
-            })
-        });
+        // Attempt generation with automatic retries (up to 2 retries = 3 total attempts)
+        const MAX_ATTEMPTS = 3;
+        let lastError = null;
+        let quizData = null;
 
-        if (!response.ok) {
-            const errData = await response.json();
-            throw new Error(errData.error?.message || 'AI completion request failed');
+        for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+            console.log(`[AI Quiz Gen] Attempt ${attempt}/${MAX_ATTEMPTS} calling ${requestModel} for topic "${topic.topic_title}"`);
+            
+            try {
+                const response = await fetch(apiEndpoint, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify({
+                        model: requestModel,
+                        messages: [
+                            { role: 'system', content: QUIZ_GEN_SYSTEM_PROMPT },
+                            { role: 'user', content: userPrompt }
+                        ],
+                        temperature: 0.6,
+                        max_tokens: 4000,
+                        response_format: { type: 'json_object' }
+                    })
+                });
+
+                if (!response.ok) {
+                    const errData = await response.json().catch(() => ({}));
+                    throw new Error(errData.error?.message || `AI completion failed with HTTP status ${response.status}`);
+                }
+
+                const data = await response.json();
+                const contentString = data.choices?.[0]?.message?.content;
+                if (!contentString) {
+                    throw new Error('AI returned empty response content');
+                }
+
+                const cleanedJsonStr = extractJsonFromLlmOutput(contentString);
+                if (!cleanedJsonStr) {
+                    console.warn(`[AI Quiz Gen Attempt ${attempt}] Could not locate JSON boundaries in response:`, contentString);
+                    throw new Error('Could not locate JSON in AI response');
+                }
+
+                let parsed;
+                try {
+                    parsed = JSON.parse(cleanedJsonStr);
+                } catch (pe) {
+                    console.warn(`[AI Quiz Gen Attempt ${attempt}] JSON.parse failed. Raw:`, contentString);
+                    throw new Error(`JSON parse error: ${pe.message}`);
+                }
+
+                if (!validateQuizSchema(parsed)) {
+                    console.warn(`[AI Quiz Gen Attempt ${attempt}] Schema validation failed:`, parsed);
+                    throw new Error('AI output did not match expected quiz schema');
+                }
+
+                // Success!
+                quizData = parsed;
+                break;
+
+            } catch (attemptErr) {
+                lastError = attemptErr;
+                console.warn(`[AI Quiz Gen Attempt ${attempt} failed]:`, attemptErr.message);
+                if (attempt < MAX_ATTEMPTS) {
+                    // Small delay before retrying
+                    await new Promise(r => setTimeout(r, 600));
+                }
+            }
         }
 
-        const data = await response.json();
-        const contentString = data.choices[0].message.content;
-
-        // Clean output string in case LLM wraps it in markdown code blocks
-        let cleanJsonStr = contentString.trim();
-        if (cleanJsonStr.startsWith('```json')) {
-            cleanJsonStr = cleanJsonStr.slice(7);
-        } else if (cleanJsonStr.startsWith('```')) {
-            cleanJsonStr = cleanJsonStr.slice(3);
-        }
-        if (cleanJsonStr.endsWith('```')) {
-            cleanJsonStr = cleanJsonStr.slice(0, -3);
-        }
-        cleanJsonStr = cleanJsonStr.trim();
-        
-        // Remove trailing commas before closing brackets/braces (common invalid JSON pattern from LLMs)
-        cleanJsonStr = cleanJsonStr.replace(/,\s*([\]}])/g, '$1');
-
-        let quizData;
-        try {
-            quizData = JSON.parse(cleanJsonStr);
-        } catch (parseErr) {
-            console.error('[AI Quiz Gen JSON Parse Error] Raw content received:', contentString);
+        if (!quizData) {
+            console.error('[AI Quiz Gen] All generation attempts exhausted. Last error:', lastError?.message);
             return res.status(500).json({ 
                 error: 'AI generated invalid JSON output format. Please try generating again.',
-                details: parseErr.message 
+                details: lastError?.message 
             });
         }
 
@@ -337,26 +472,36 @@ Ensure the questions are accurate and directly relevant to both the overall cour
             const createdQuiz = quizRes.rows[0];
 
             const questions = quizData.questions || [];
-            const createdQuestions = [];
+            let createdQuestions = [];
 
-            for (const q of questions) {
-                const assignedDifficulty = ['EASY', 'MEDIUM', 'HARD'].includes(q.difficulty?.toUpperCase())
-                    ? q.difficulty.toUpperCase()
-                    : 'MEDIUM';
+            if (questions.length > 0) {
+                const values = [];
+                const placeholders = [];
+                let paramIdx = 1;
 
-                const questionInsertQuery = `
+                for (const q of questions) {
+                    const assignedDifficulty = ['EASY', 'MEDIUM', 'HARD'].includes(q.difficulty?.toUpperCase())
+                        ? q.difficulty.toUpperCase()
+                        : 'MEDIUM';
+
+                    placeholders.push(`($${paramIdx}, $${paramIdx + 1}, $${paramIdx + 2}, $${paramIdx + 3}, $${paramIdx + 4})`);
+                    values.push(
+                        createdQuiz.id,
+                        q.content,
+                        JSON.stringify(q.options),
+                        q.correctOptionId,
+                        assignedDifficulty
+                    );
+                    paramIdx += 5;
+                }
+
+                const questionBatchInsertQuery = `
                     INSERT INTO questions (quiz_id, content, options, correct_option_id, difficulty)
-                    VALUES ($1, $2, $3, $4, $5)
+                    VALUES ${placeholders.join(', ')}
                     RETURNING *
                 `;
-                const qRes = await client.query(questionInsertQuery, [
-                    createdQuiz.id,
-                    q.content,
-                    JSON.stringify(q.options),
-                    q.correctOptionId,
-                    assignedDifficulty
-                ]);
-                createdQuestions.push(qRes.rows[0]);
+                const qRes = await client.query(questionBatchInsertQuery, values);
+                createdQuestions = qRes.rows;
             }
 
             await client.query('COMMIT');
@@ -411,7 +556,7 @@ async function deleteQuiz(req, res) {
 async function getQuizQuestions(req, res) {
     const { quizId } = req.params;
     try {
-        const result = await db.query('SELECT * FROM questions WHERE quiz_id = $1 ORDER BY difficulty DESC, created_at ASC', [quizId]);
+        const result = await db.query('SELECT id, quiz_id, content, options, correct_option_id, difficulty, created_at FROM questions WHERE quiz_id = $1 ORDER BY difficulty DESC, created_at ASC', [quizId]);
         return res.json(result.rows);
     } catch (err) {
         console.error('Get quiz questions error:', err.message);
@@ -502,15 +647,43 @@ async function deleteQuestion(req, res) {
     }
 }
 
+/**
+ * Fetch a single quiz by ID with topic and course details
+ */
+async function getQuizById(req, res) {
+    const { quizId } = req.params;
+    try {
+        const result = await db.query(`
+            SELECT q.id, q.topic_id, q.title, q.passing_score, q.is_active, q.created_at, 
+                   t.title as topic_title, t.course_id, c.title as course_title
+            FROM quizzes q
+            JOIN topics t ON q.topic_id = t.id
+            JOIN courses c ON t.course_id = c.id
+            WHERE q.id = $1
+        `, [quizId]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'Quiz not found' });
+        }
+
+        return res.json(result.rows[0]);
+    } catch (err) {
+        console.error('Get quiz by ID error:', err.message);
+        return res.status(500).json({ error: 'Internal server error fetching quiz details' });
+    }
+}
+
 module.exports = {
     getNextAdaptiveQuestion,
     submitQuiz,
     createQuiz,
     addQuestionToQuiz,
     getQuizzesByTopic,
+    toggleQuizActive,
     generateAiQuiz,
     deleteQuiz,
     getQuizQuestions,
+    getQuizById,
     updateQuestion,
     deleteQuestion
 };

@@ -90,6 +90,9 @@ async function getTeacherPendingApplications(req, res) {
     const teacherId = req.user.id;
 
     try {
+        const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 50));
+        const offset = Math.max(0, parseInt(req.query.offset, 10) || 0);
+
         const queryText = `
             SELECT 
                 a.*, 
@@ -102,8 +105,9 @@ async function getTeacherPendingApplications(req, res) {
             JOIN users u ON a.ta_id = u.id
             WHERE c.teacher_id = $1
             ORDER BY a.created_at DESC
+            LIMIT $2 OFFSET $3
         `;
-        const result = await db.query(queryText, [teacherId]);
+        const result = await db.query(queryText, [teacherId, limit, offset]);
         return res.json(result.rows);
     } catch (err) {
         console.error('Get teacher pending applications error:', err.message);
@@ -112,21 +116,22 @@ async function getTeacherPendingApplications(req, res) {
 }
 
 /**
- * Teacher reviews (Approve/Reject) a TA application
+ * Teacher reviews (Approve/Reject/Remove) a TA application
  */
 async function reviewApplication(req, res) {
     const { id } = req.params;
-    const { status } = req.body; // 'APPROVED' or 'REJECTED'
+    const { status } = req.body; // 'APPROVED', 'REJECTED', 'REMOVED'
     const teacherId = req.user.id;
 
-    if (!status || !['APPROVED', 'REJECTED'].includes(status.toUpperCase())) {
-        return res.status(400).json({ error: 'Status must be APPROVED or REJECTED' });
+    if (!status || !['APPROVED', 'REJECTED', 'REMOVED'].includes(status.toUpperCase())) {
+        return res.status(400).json({ error: 'Status must be APPROVED, REJECTED, or REMOVED' });
     }
 
     try {
         // Fetch application details and verify teacher ownership
         const appRes = await db.query(
-            `SELECT a.*, c.title AS course_title, u.email AS ta_email, u.first_name AS ta_first_name
+            `SELECT a.id, a.ta_id, a.course_id, a.status, a.created_at, a.reviewed_at, a.reviewed_by,
+                    c.title AS course_title, u.email AS ta_email, u.first_name AS ta_first_name
              FROM ta_applications a
              JOIN courses c ON a.course_id = c.id
              JOIN users u ON a.ta_id = u.id
@@ -149,7 +154,7 @@ async function reviewApplication(req, res) {
             [newStatus, teacherId, id]
         );
 
-        // 2. If approved, link TA to course in course_tas table
+        // 2. Handle course_tas mapping
         if (newStatus === 'APPROVED') {
             await db.query(
                 `INSERT INTO course_tas (ta_id, course_id) 
@@ -157,11 +162,22 @@ async function reviewApplication(req, res) {
                  ON CONFLICT (ta_id, course_id) DO NOTHING`,
                 [app.ta_id, app.course_id]
             );
+        } else if (newStatus === 'REMOVED' || newStatus === 'REJECTED') {
+            // Revoke TA course access
+            await db.query(
+                `DELETE FROM course_tas WHERE ta_id = $1 AND course_id = $2`,
+                [app.ta_id, app.course_id]
+            );
         }
 
         // 3. Create in-app notification entry
-        const notifTitle = `TA Application ${newStatus === 'APPROVED' ? 'Approved 🎉' : 'Status Update'}`;
-        const notifMsg = `Your application to assist as TA for course "${app.course_title}" has been ${newStatus.toLowerCase()}.`;
+        let notifTitle = `TA Application ${newStatus === 'APPROVED' ? 'Approved 🎉' : 'Status Update'}`;
+        let notifMsg = `Your application to assist as TA for course "${app.course_title}" has been ${newStatus.toLowerCase()}.`;
+        if (newStatus === 'REMOVED') {
+            notifTitle = `TA Access Removed`;
+            notifMsg = `You have been removed as Teaching Assistant for course "${app.course_title}".`;
+        }
+
         await db.query(
             `INSERT INTO notifications (user_id, title, message) VALUES ($1, $2, $3)`,
             [app.ta_id, notifTitle, notifMsg]
@@ -225,8 +241,8 @@ async function getAssignedCourseStudents(req, res) {
             return res.status(403).json({ error: 'Forbidden: You are not an assigned TA for this course' });
         }
 
-        // Fetch enrolled students and their progress per topic (no sensitive fields like password_hash)
-        const queryText = `
+        // 1. Fetch enrolled students
+        const studentsRes = await db.query(`
             SELECT 
                 e.id AS enrollment_id,
                 e.enrolled_at,
@@ -234,28 +250,107 @@ async function getAssignedCourseStudents(req, res) {
                 u.id AS student_id,
                 u.first_name,
                 u.last_name,
-                u.email,
-                COALESCE(
-                    JSON_AGG(
-                        JSON_BUILD_OBJECT(
-                            'topic_id', t.id,
-                            'topic_title', t.title,
-                            'skill_score', COALESCE(p.skill_score, 0),
-                            'completion_percentage', COALESCE(p.completion_percentage, 0),
-                            'last_studied_at', p.last_studied_at
-                        )
-                    ) FILTER (WHERE t.id IS NOT NULL), '[]'
-                ) AS topic_progress
+                u.email
             FROM enrollments e
             JOIN users u ON e.student_id = u.id
-            LEFT JOIN topics t ON t.course_id = e.course_id
-            LEFT JOIN progress p ON p.student_id = u.id AND p.topic_id = t.id
             WHERE e.course_id = $1
-            GROUP BY e.id, u.id
             ORDER BY u.first_name, u.last_name
-        `;
-        const result = await db.query(queryText, [courseId]);
-        return res.json(result.rows);
+        `, [courseId]);
+
+        // 2. Fetch all topics for this course
+        const topicsRes = await db.query(`
+            SELECT id, title, sequence_order 
+            FROM topics 
+            WHERE course_id = $1 
+            ORDER BY sequence_order ASC
+        `, [courseId]);
+        const courseTopics = topicsRes.rows;
+
+        // 3. Fetch aggregated quiz statistics directly from PostgreSQL (replaces fetching all historical raw attempt rows)
+        const [overallStatsRes, topicStatsRes, progressRes] = await Promise.all([
+            // Student course-level quiz stats (average, most recent, count)
+            db.query(`
+                SELECT 
+                    qa.student_id,
+                    ROUND(AVG(qa.score))::integer AS average_score,
+                    (ARRAY_AGG(qa.score ORDER BY qa.completed_at DESC))[1] AS recent_score,
+                    COUNT(qa.id)::integer AS attempts_count
+                FROM quiz_attempts qa
+                JOIN quizzes q ON qa.quiz_id = q.id
+                JOIN topics t ON q.topic_id = t.id
+                WHERE t.course_id = $1
+                GROUP BY qa.student_id
+            `, [courseId]),
+
+            // Student topic-level quiz stats (average, most recent)
+            db.query(`
+                SELECT 
+                    qa.student_id,
+                    q.topic_id,
+                    ROUND(AVG(qa.score))::integer AS topic_avg,
+                    (ARRAY_AGG(qa.score ORDER BY qa.completed_at DESC))[1] AS topic_recent
+                FROM quiz_attempts qa
+                JOIN quizzes q ON qa.quiz_id = q.id
+                JOIN topics t ON q.topic_id = t.id
+                WHERE t.course_id = $1
+                GROUP BY qa.student_id, q.topic_id
+            `, [courseId]),
+
+            // 4. Fetch completion percentages from progress table
+            db.query(`
+                SELECT p.student_id, p.topic_id, p.completion_percentage, p.last_studied_at
+                FROM progress p
+                JOIN topics t ON p.topic_id = t.id
+                WHERE t.course_id = $1
+            `, [courseId])
+        ]);
+
+        const studentQuizStatsMap = new Map();
+        for (const row of overallStatsRes.rows) {
+            studentQuizStatsMap.set(row.student_id, row);
+        }
+
+        const topicQuizStatsMap = new Map();
+        for (const row of topicStatsRes.rows) {
+            topicQuizStatsMap.set(`${row.student_id}_${row.topic_id}`, row);
+        }
+
+        const progressMap = new Map();
+        for (const row of progressRes.rows) {
+            progressMap.set(`${row.student_id}_${row.topic_id}`, row);
+        }
+
+        // Build enriched student objects using SQL-aggregated metrics
+        const students = studentsRes.rows.map(std => {
+            const stdStats = studentQuizStatsMap.get(std.student_id) || {};
+            const averageScore = stdStats.average_score ?? null;
+            const recentScore = stdStats.recent_score ?? null;
+            const attemptsCount = stdStats.attempts_count || 0;
+
+            const topicProgress = courseTopics.map(topic => {
+                const topicStats = topicQuizStatsMap.get(`${std.student_id}_${topic.id}`) || {};
+                const progRecord = progressMap.get(`${std.student_id}_${topic.id}`);
+
+                return {
+                    topic_id: topic.id,
+                    topic_title: topic.title,
+                    average_score: topicStats.topic_avg ?? null,
+                    recent_score: topicStats.topic_recent ?? null,
+                    completion_percentage: progRecord ? progRecord.completion_percentage : 0,
+                    last_studied_at: progRecord ? progRecord.last_studied_at : null
+                };
+            });
+
+            return {
+                ...std,
+                average_score: averageScore,
+                recent_score: recentScore,
+                attempts_count: attemptsCount,
+                topic_progress: topicProgress
+            };
+        });
+
+        return res.json(students);
     } catch (err) {
         console.error('Get assigned course students error:', err.message);
         return res.status(500).json({ error: 'Failed to fetch student data for course' });
@@ -364,6 +459,9 @@ async function getStudentRequests(req, res) {
     const studentId = req.user.id;
 
     try {
+        const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 50));
+        const offset = Math.max(0, parseInt(req.query.offset, 10) || 0);
+
         const queryText = `
             SELECT 
                 r.*, 
@@ -376,8 +474,9 @@ async function getStudentRequests(req, res) {
             JOIN users u ON r.ta_id = u.id
             WHERE r.student_id = $1
             ORDER BY r.created_at DESC
+            LIMIT $2 OFFSET $3
         `;
-        const result = await db.query(queryText, [studentId]);
+        const result = await db.query(queryText, [studentId, limit, offset]);
         return res.json(result.rows);
     } catch (err) {
         console.error('Get student requests error:', err.message);
@@ -392,6 +491,9 @@ async function getTaRequests(req, res) {
     const taId = req.user.id;
 
     try {
+        const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 50));
+        const offset = Math.max(0, parseInt(req.query.offset, 10) || 0);
+
         const queryText = `
             SELECT 
                 r.*, 
@@ -404,8 +506,9 @@ async function getTaRequests(req, res) {
             JOIN users u ON r.student_id = u.id
             WHERE r.ta_id = $1
             ORDER BY r.created_at DESC
+            LIMIT $2 OFFSET $3
         `;
-        const result = await db.query(queryText, [taId]);
+        const result = await db.query(queryText, [taId, limit, offset]);
         return res.json(result.rows);
     } catch (err) {
         console.error('Get TA requests error:', err.message);
@@ -427,7 +530,8 @@ async function scheduleDoubtRequest(req, res) {
 
     try {
         const reqCheck = await db.query(
-            `SELECT r.*, c.title AS course_title, 
+            `SELECT r.id, r.student_id, r.ta_id, r.course_id, r.subject, r.description, r.status,
+                    c.title AS course_title, 
                     s.email AS student_email, s.first_name AS student_first_name,
                     ta.first_name AS ta_first_name, ta.last_name AS ta_last_name, ta.email AS ta_email
              FROM ta_requests r

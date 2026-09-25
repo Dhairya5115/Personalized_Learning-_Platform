@@ -7,9 +7,12 @@ const { authenticateToken, requireRole } = require('../middleware/auth');
 router.get('/:quizId/next', authenticateToken, requireRole(['STUDENT']), quizController.getNextAdaptiveQuestion);
 router.post('/submit', authenticateToken, requireRole(['STUDENT']), quizController.submitQuiz);
 router.get('/topic/:topicId', authenticateToken, quizController.getQuizzesByTopic);
+router.get('/:quizId', authenticateToken, quizController.getQuizById);
 
 // Teacher/Admin endpoints
 router.post('/', authenticateToken, requireRole(['TEACHER', 'ADMIN']), quizController.createQuiz);
+router.patch('/:quizId/toggle-active', authenticateToken, requireRole(['TEACHER', 'ADMIN']), quizController.toggleQuizActive);
+router.put('/:quizId/active', authenticateToken, requireRole(['TEACHER', 'ADMIN']), quizController.toggleQuizActive);
 router.get('/:quizId/questions', authenticateToken, quizController.getQuizQuestions);
 router.post('/:quizId/questions', authenticateToken, requireRole(['TEACHER', 'ADMIN']), quizController.addQuestionToQuiz);
 router.put('/questions/:questionId', authenticateToken, requireRole(['TEACHER', 'ADMIN']), quizController.updateQuestion);

@@ -6,16 +6,17 @@ export function ThemeProvider({ children }) {
     const [theme, setTheme] = useState(() => {
         const savedTheme = localStorage.getItem('theme');
         if (savedTheme) return savedTheme;
-        // Default to dark mode since it's the premium aesthetic requested
-        return 'dark';
+        return 'light'; // Default to light matching edX reference
     });
 
     useEffect(() => {
         const root = window.document.documentElement;
         if (theme === 'dark') {
             root.classList.add('dark');
+            root.setAttribute('data-theme', 'dark');
         } else {
             root.classList.remove('dark');
+            root.setAttribute('data-theme', 'light');
         }
         localStorage.setItem('theme', theme);
     }, [theme]);
@@ -34,3 +35,4 @@ export function ThemeProvider({ children }) {
 export function useTheme() {
     return useContext(ThemeContext);
 }
+

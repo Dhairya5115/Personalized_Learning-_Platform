@@ -1,13 +1,33 @@
 const API_BASE_URL = 'http://localhost:5000/api';
 
+// Mutex promise to handle concurrent 401s during silent refresh (per-tab)
+let isRefreshing = false;
+let refreshSubscribers = [];
+
+function subscribeTokenRefresh(cb) {
+    refreshSubscribers.push(cb);
+}
+
+function onRefreshed(newToken) {
+    refreshSubscribers.forEach(cb => cb(newToken));
+    refreshSubscribers = [];
+}
+
+function onRefreshFailed() {
+    refreshSubscribers.forEach(cb => cb(null));
+    refreshSubscribers = [];
+}
+
 /**
  * Custom request wrapper for calling backend endpoints
- * Automatically adds the Authorization JWT Bearer token
+ * Automatically adds the Authorization JWT Bearer token from tab-scoped sessionStorage
+ * Performs silent token refresh on 401 before giving up
  * @param {string} endpoint e.g., '/auth/login'
  * @param {object} options fetch options
+ * @param {boolean} isRetry whether this call is already a retry attempt
  */
-async function apiCall(endpoint, options = {}) {
-    const token = localStorage.getItem('token');
+async function apiCall(endpoint, options = {}, isRetry = false) {
+    const token = sessionStorage.getItem('token');
     
     const headers = {
         'Content-Type': 'application/json',
@@ -27,25 +47,95 @@ async function apiCall(endpoint, options = {}) {
     try {
         const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
         
-        // Handle unauthorized token expiries
-        if (response.status === 401 || response.status === 403) {
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-            // If they are not already on the login page, redirect them
-            if (!window.location.pathname.includes('/login') && !window.location.pathname.includes('/register')) {
-                window.location.href = '/login';
+        // Handle 401 Unauthorized
+        if (response.status === 401) {
+            const isAuthEndpoint = endpoint.startsWith('/auth/login') || 
+                                   endpoint.startsWith('/auth/register') || 
+                                   endpoint.startsWith('/auth/refresh') ||
+                                   endpoint.startsWith('/auth/forgot-password') ||
+                                   endpoint.startsWith('/auth/reset-password');
+
+            // If not an auth endpoint and not already a retry, try silent refresh in this tab
+            if (!isAuthEndpoint && !isRetry) {
+                const currentToken = sessionStorage.getItem('token');
+
+                if (currentToken) {
+                    if (!isRefreshing) {
+                        isRefreshing = true;
+
+                        try {
+                            const refreshRes = await fetch(`${API_BASE_URL}/auth/refresh`, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${currentToken}`
+                                },
+                                body: JSON.stringify({ token: currentToken })
+                            });
+
+                            if (refreshRes.ok) {
+                                const refreshData = await refreshRes.json();
+                                if (refreshData && refreshData.token) {
+                                    sessionStorage.setItem('token', refreshData.token);
+                                    if (refreshData.user) {
+                                        sessionStorage.setItem('user', JSON.stringify(refreshData.user));
+                                    }
+                                    isRefreshing = false;
+                                    onRefreshed(refreshData.token);
+                                    
+                                    // Retry the original request with new token
+                                    return apiCall(endpoint, options, true);
+                                }
+                            }
+                            // If refresh response not ok, fail refresh
+                            throw new Error('Token refresh rejected');
+                        } catch (refreshErr) {
+                            isRefreshing = false;
+                            onRefreshFailed();
+                            sessionStorage.removeItem('token');
+                            sessionStorage.removeItem('user');
+                            
+                            if (!window.location.pathname.includes('/login') && !window.location.pathname.includes('/register')) {
+                                window.location.href = '/login';
+                            }
+                            throw new Error('Session expired. Please log in again.');
+                        }
+                    } else {
+                        // Another call in this tab is already refreshing the token; queue this request
+                        return new Promise((resolve, reject) => {
+                            subscribeTokenRefresh((newToken) => {
+                                if (newToken) {
+                                    resolve(apiCall(endpoint, options, true));
+                                } else {
+                                    reject(new Error('Session expired'));
+                                }
+                            });
+                        });
+                    }
+                } else {
+                    // No token present in this tab
+                    sessionStorage.removeItem('token');
+                    sessionStorage.removeItem('user');
+                    if (!window.location.pathname.includes('/login') && !window.location.pathname.includes('/register')) {
+                        window.location.href = '/login';
+                    }
+                }
             }
         }
 
         const data = await response.json();
         
         if (!response.ok) {
-            throw new Error(data.error || 'Request failed');
+            const err = new Error(data.error || 'Request failed');
+            err.status = response.status;
+            throw err;
         }
 
         return data;
     } catch (err) {
-        console.error(`[API Call Error] ${endpoint}:`, err.message);
+        if (!endpoint.startsWith('/auth/profile')) {
+            console.error(`[API Call Error] ${endpoint}:`, err.message);
+        }
         throw err;
     }
 }
@@ -59,6 +149,10 @@ const api = {
     register: (email, password, firstName, lastName, role) => apiCall('/auth/register', {
         method: 'POST',
         body: { email, password, firstName, lastName, role }
+    }),
+    refreshToken: (token) => apiCall('/auth/refresh', {
+        method: 'POST',
+        body: { token }
     }),
     forgotPassword: (email) => apiCall('/auth/forgot-password', {
         method: 'POST',
@@ -125,6 +219,7 @@ const api = {
     }),
 
     // Quizzes
+    getQuizDetails: (quizId) => apiCall(`/quiz/${quizId}`),
     getQuizzesByTopic: (topicId) => apiCall(`/quiz/topic/${topicId}`),
     getNextQuestion: (quizId, exclude) => apiCall(`/quiz/${quizId}/next${exclude ? `?exclude=${exclude}` : ''}`),
     submitQuiz: (quizId, responses) => apiCall('/quiz/submit', {
@@ -141,6 +236,10 @@ const api = {
     }),
     generateAiQuiz: (topicId) => apiCall(`/quiz/topic/${topicId}/generate-ai`, {
         method: 'POST'
+    }),
+    toggleQuizActive: (quizId, isActive) => apiCall(`/quiz/${quizId}/toggle-active`, {
+        method: 'PATCH',
+        body: { isActive }
     }),
     deleteQuiz: (quizId) => apiCall(`/quiz/${quizId}`, {
         method: 'DELETE'

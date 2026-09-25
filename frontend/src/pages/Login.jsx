@@ -118,46 +118,42 @@ export default function Login() {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 px-4 transition-colors duration-200 py-12 relative overflow-hidden select-none">
-            {/* Soft decorative background gradients */}
-            <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-500/10 dark:bg-indigo-500/5 rounded-full blur-3xl pointer-events-none" />
-            <div className="absolute bottom-0 left-0 w-96 h-96 bg-emerald-500/10 dark:bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
-
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full max-w-md rounded-2xl p-8 sm:p-10 shadow-sm flex flex-col relative z-10 transition-colors duration-200">
+        <div className="min-h-screen flex items-center justify-center bg-[#ffffff] px-4 py-12 relative overflow-hidden select-none">
+            <div className="bg-[#ffffff] border border-[#edebe3] w-full max-w-md rounded-2xl p-8 sm:p-10 shadow-lg flex flex-col relative z-10 transition-colors duration-200">
                 
                 {/* Logo and Greeting */}
                 <div className="flex flex-col items-center text-center mb-8">
-                    <div className="bg-indigo-600 dark:bg-indigo-500 p-3 rounded-2xl text-white shadow-sm shadow-indigo-500/20 mb-4">
-                        <BookOpen size={28} />
+                    <div className="bg-[#00262b] p-3.5 rounded-2xl text-[#04c5e7] shadow-sm mb-4">
+                        <BookOpen size={30} />
                     </div>
-                    <h2 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight leading-none">
+                    <h2 className="text-3xl font-extrabold text-[#00262b] tracking-tight leading-tight">
                         {resetToken ? 'Reset Your Password' : isForgotPassword ? 'Forgot Password' : isRegistering ? 'Create an Account' : 'Welcome Back'}
                     </h2>
-                    <p className="text-slate-400 dark:text-slate-500 text-xs mt-2.5 max-w-[280px]">
+                    <p className="text-[#52716c] text-xs mt-2.5 max-w-[280px]">
                         {resetToken 
                             ? 'Type your new password below to reset it' 
                             : isForgotPassword 
                             ? 'Enter your email to get a link to reset your password' 
                             : isRegistering 
-                            ? 'Sign up to start learning' 
+                            ? 'Sign up to start learning on TailorLearn' 
                             : 'Log in to continue your classes'}
                     </p>
                 </div>
 
                 {error && (
-                    <div className="bg-rose-500/10 text-rose-500 border border-rose-500/20 p-3.5 rounded-xl text-xs mb-6 text-center font-medium">
+                    <div className="bg-[#f3f1ed] text-[#d64000] border border-[#d64000]/30 p-3.5 rounded-xl text-xs mb-6 text-center font-bold">
                         {error}
                     </div>
                 )}
 
                 {forgotSuccess && (
-                    <div className="bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 p-3.5 rounded-xl text-xs mb-6 text-center font-medium">
+                    <div className="bg-[#f3f1ed] text-[#00262b] border border-[#04c5e7] p-3.5 rounded-xl text-xs mb-6 text-center font-bold">
                         {forgotSuccess}
                     </div>
                 )}
 
                 {resetSuccess && (
-                    <div className="bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 p-3.5 rounded-xl text-xs mb-6 text-center font-medium">
+                    <div className="bg-[#f3f1ed] text-[#00262b] border border-[#04c5e7] p-3.5 rounded-xl text-xs mb-6 text-center font-bold">
                         {resetSuccess}
                     </div>
                 )}
@@ -166,12 +162,12 @@ export default function Login() {
                     /* RESET PASSWORD FORM */
                     <form onSubmit={handleResetPassword} className="space-y-4">
                         <div>
-                            <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">New Password</label>
+                            <label className="block text-[11px] font-bold text-[#52716c] uppercase tracking-wider mb-2">New Password</label>
                             <div className="relative">
-                                <Lock className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-400 dark:text-slate-500" size={16} />
+                                <Lock className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-[#52716c]" size={16} />
                                 <input 
                                     type={showPassword ? 'text' : 'password'} 
-                                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl pl-10 pr-10 py-2.5 text-sm text-slate-850 dark:text-slate-105 focus:outline-none focus:border-indigo-500" 
+                                    className="w-full bg-[#ffffff] border border-[#e1ddd1] rounded-xl pl-10 pr-10 py-2.5 text-sm text-[#00262b] focus:outline-none focus:border-[#04c5e7]" 
                                     placeholder="••••••••"
                                     value={newPassword}
                                     onChange={(e) => setNewPassword(e.target.value)}
@@ -180,7 +176,7 @@ export default function Login() {
                                 <button
                                     type="button"
                                     onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute right-3.5 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors p-1"
+                                    className="absolute right-3.5 top-1/2 transform -translate-y-1/2 text-[#52716c] hover:text-[#00262b] transition-colors p-1"
                                 >
                                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                                 </button>
@@ -188,12 +184,12 @@ export default function Login() {
                         </div>
 
                         <div>
-                            <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">Confirm New Password</label>
+                            <label className="block text-[11px] font-bold text-[#52716c] uppercase tracking-wider mb-2">Confirm New Password</label>
                             <div className="relative">
-                                <Lock className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-400 dark:text-slate-500" size={16} />
+                                <Lock className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-[#52716c]" size={16} />
                                 <input 
                                     type={showConfirmPassword ? 'text' : 'password'} 
-                                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl pl-10 pr-10 py-2.5 text-sm text-slate-850 dark:text-slate-105 focus:outline-none focus:border-indigo-500" 
+                                    className="w-full bg-[#ffffff] border border-[#e1ddd1] rounded-xl pl-10 pr-10 py-2.5 text-sm text-[#00262b] focus:outline-none focus:border-[#04c5e7]" 
                                     placeholder="••••••••"
                                     value={confirmPassword}
                                     onChange={(e) => setConfirmPassword(e.target.value)}
@@ -202,7 +198,7 @@ export default function Login() {
                                 <button
                                     type="button"
                                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                                    className="absolute right-3.5 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors p-1"
+                                    className="absolute right-3.5 top-1/2 transform -translate-y-1/2 text-[#52716c] hover:text-[#00262b] transition-colors p-1"
                                 >
                                     {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                                 </button>
@@ -211,7 +207,7 @@ export default function Login() {
 
                         <button 
                             type="submit" 
-                            className="w-full bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl py-2.5 text-sm font-semibold transition-colors mt-2" 
+                            className="btn-primary w-full mt-2" 
                             disabled={loading}
                         >
                             {loading ? 'Processing...' : 'Reset Password'}
@@ -221,12 +217,12 @@ export default function Login() {
                     /* FORGOT PASSWORD FORM */
                     <form onSubmit={handleForgotPassword} className="space-y-4">
                         <div>
-                            <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">Email Address</label>
+                            <label className="block text-[11px] font-bold text-[#52716c] uppercase tracking-wider mb-2">Email Address</label>
                             <div className="relative">
-                                <Mail className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-400 dark:text-slate-500" size={16} />
+                                <Mail className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-[#52716c]" size={16} />
                                 <input 
                                     type="email" 
-                                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-850 dark:text-slate-105 focus:outline-none focus:border-indigo-500" 
+                                    className="w-full bg-[#ffffff] border border-[#e1ddd1] rounded-xl pl-10 pr-4 py-2.5 text-sm text-[#00262b] focus:outline-none focus:border-[#04c5e7]" 
                                     placeholder="you@example.com"
                                     value={forgotEmail}
                                     onChange={(e) => setForgotEmail(e.target.value)}
@@ -237,7 +233,7 @@ export default function Login() {
 
                         <button 
                             type="submit" 
-                            className="w-full bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl py-2.5 text-sm font-semibold transition-colors mt-2" 
+                            className="btn-primary w-full mt-2" 
                             disabled={loading}
                         >
                             {loading ? 'Sending recovery link...' : 'Send Recovery Email'}
@@ -251,7 +247,7 @@ export default function Login() {
                                     setError('');
                                     setForgotSuccess('');
                                 }}
-                                className="inline-flex items-center gap-1.5 text-xs text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-350 transition-colors"
+                                className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#52716c] hover:text-[#00262b] transition-colors"
                             >
                                 <ArrowLeft size={14} /> Back to Log In
                             </button>
@@ -264,12 +260,12 @@ export default function Login() {
                             <>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">First Name</label>
+                                        <label className="block text-[11px] font-bold text-[#52716c] uppercase tracking-wider mb-2">First Name</label>
                                         <div className="relative">
-                                            <User className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-400 dark:text-slate-500" size={14} />
+                                            <User className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-[#52716c]" size={14} />
                                             <input 
                                                 type="text" 
-                                                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl pl-9 pr-4 py-2 text-sm text-slate-850 dark:text-slate-105 focus:outline-none focus:border-indigo-500" 
+                                                className="w-full bg-[#ffffff] border border-[#e1ddd1] rounded-xl pl-9 pr-4 py-2 text-sm text-[#00262b] focus:outline-none focus:border-[#04c5e7]" 
                                                 value={firstName}
                                                 onChange={(e) => setFirstName(e.target.value)}
                                                 required
@@ -277,12 +273,12 @@ export default function Login() {
                                         </div>
                                     </div>
                                     <div>
-                                        <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">Last Name</label>
+                                        <label className="block text-[11px] font-bold text-[#52716c] uppercase tracking-wider mb-2">Last Name</label>
                                         <div className="relative">
-                                            <User className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-400 dark:text-slate-500" size={14} />
+                                            <User className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-[#52716c]" size={14} />
                                             <input 
                                                 type="text" 
-                                                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl pl-9 pr-4 py-2 text-sm text-slate-850 dark:text-slate-105 focus:outline-none focus:border-indigo-500" 
+                                                className="w-full bg-[#ffffff] border border-[#e1ddd1] rounded-xl pl-9 pr-4 py-2 text-sm text-[#00262b] focus:outline-none focus:border-[#04c5e7]" 
                                                 value={lastName}
                                                 onChange={(e) => setLastName(e.target.value)}
                                                 required
@@ -292,9 +288,9 @@ export default function Login() {
                                 </div>
 
                                 <div>
-                                    <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">I am a:</label>
+                                    <label className="block text-[11px] font-bold text-[#52716c] uppercase tracking-wider mb-2">I am a:</label>
                                     <select 
-                                        className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-800 dark:text-slate-100 focus:outline-none focus:border-indigo-500"
+                                        className="w-full bg-[#ffffff] border border-[#e1ddd1] rounded-xl px-4 py-2.5 text-sm text-[#00262b] font-medium focus:outline-none focus:border-[#04c5e7]"
                                         value={role}
                                         onChange={(e) => setRole(e.target.value)}
                                     >
@@ -307,12 +303,12 @@ export default function Login() {
                         )}
 
                         <div>
-                            <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">Email Address</label>
+                            <label className="block text-[11px] font-bold text-[#52716c] uppercase tracking-wider mb-2">Email Address</label>
                             <div className="relative">
-                                <Mail className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-400 dark:text-slate-500" size={16} />
+                                <Mail className="absolute left-0.99 top-1/2 transform -translate-y-1/2 text-[#52716c]" size={16} />
                                 <input 
                                     type="email" 
-                                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-sm text-slate-850 dark:text-slate-105 focus:outline-none focus:border-indigo-500" 
+                                    className="w-full bg-[#ffffff] border border-[#e1ddd1] rounded-xl pl-10 pr-4 py-2.5 text-sm text-[#00262b] focus:outline-none focus:border-[#04c5e7]" 
                                     placeholder="you@example.com"
                                     value={email}
                                     onChange={(e) => setEmail(e.target.value)}
@@ -323,7 +319,7 @@ export default function Login() {
 
                         <div>
                             <div className="flex justify-between items-center mb-2">
-                                <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">Password</label>
+                                <label className="block text-[11px] font-bold text-[#52716c] uppercase tracking-wider">Password</label>
                                 {!isRegistering && (
                                     <button 
                                         type="button"
@@ -331,17 +327,17 @@ export default function Login() {
                                             setIsForgotPassword(true);
                                             setError('');
                                         }}
-                                        className="text-[11px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
+                                        className="text-[11px] font-bold text-[#04c5e7] hover:text-[#00262b] transition-colors hover:underline"
                                     >
                                         Forgot Password?
                                     </button>
                                 )}
                             </div>
                             <div className="relative">
-                                <Lock className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-400 dark:text-slate-500" size={16} />
+                                <Lock className="absolute left-0.99 top-1/2 transform -translate-y-1/2 text-[#52716c]" size={16} />
                                 <input 
                                     type={showPassword ? 'text' : 'password'} 
-                                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl pl-10 pr-10 py-2.5 text-sm text-slate-850 dark:text-slate-105 focus:outline-none focus:border-indigo-500" 
+                                    className="w-full bg-[#ffffff] border border-[#e1ddd1] rounded-xl pl-10 pr-10 py-2.5 text-sm text-[#00262b] focus:outline-none focus:border-[#04c5e7]" 
                                     placeholder="••••••••"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
@@ -350,7 +346,7 @@ export default function Login() {
                                 <button
                                     type="button"
                                     onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute right-3.5 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors p-1"
+                                    className="absolute right-3.5 top-1/2 transform -translate-y-1/2 text-[#52716c] hover:text-[#00262b] transition-colors p-1"
                                     title={showPassword ? "Hide password" : "Show password"}
                                 >
                                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -360,7 +356,7 @@ export default function Login() {
 
                         <button 
                             type="submit" 
-                            className="w-full bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl py-3 text-sm font-semibold transition-all hover:shadow-lg hover:shadow-indigo-500/20 active:scale-[0.98] duration-150 mt-4 disabled:opacity-50" 
+                            className="btn-primary w-full mt-4 disabled:opacity-50" 
                             disabled={loading}
                         >
                             {loading ? 'Processing...' : isRegistering ? 'Create Account' : 'Log In'}
@@ -369,7 +365,7 @@ export default function Login() {
                 )}
 
                 {!resetToken && !isForgotPassword && (
-                    <div className="mt-6 text-center text-xs text-slate-400 dark:text-slate-500">
+                    <div className="mt-6 text-center text-xs text-[#52716c]">
                         <span>
                             {isRegistering ? 'Already have an account? ' : 'Don\'t have an account? '}
                         </span>
@@ -378,7 +374,7 @@ export default function Login() {
                                 setIsRegistering(!isRegistering);
                                 setError('');
                             }}
-                            className="font-bold text-indigo-600 dark:text-indigo-400 hover:underline"
+                            className="font-bold text-[#00262b] hover:text-[#04c5e7] hover:underline transition-colors ml-1"
                         >
                             {isRegistering ? 'Log In here' : 'Sign up now'}
                         </button>

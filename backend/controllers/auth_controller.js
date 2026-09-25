@@ -87,7 +87,10 @@ async function login(req, res) {
 
     try {
         // 1. Check if user exists
-        const result = await db.query('SELECT * FROM users WHERE email = $1', [email.toLowerCase().trim()]);
+        const result = await db.query(
+            'SELECT id, email, password_hash, first_name, last_name, role, xp_points, streak_count, last_active_date FROM users WHERE email = $1',
+            [email.toLowerCase().trim()]
+        );
         if (result.rows.length === 0) {
             return res.status(401).json({ error: 'Invalid email or password' });
         }
@@ -259,11 +262,72 @@ async function resetPassword(req, res) {
     }
 }
 
+/**
+ * Refresh an existing JWT token
+ */
+async function refreshToken(req, res) {
+    const authHeader = req.headers['authorization'];
+    const bearerToken = authHeader && authHeader.split(' ')[1];
+    const token = bearerToken || (req.body && req.body.token);
+
+    if (!token) {
+        return res.status(401).json({ error: 'Token is required for refresh' });
+    }
+
+    try {
+        let decoded;
+        try {
+            decoded = jwt.verify(token, JWT_SECRET);
+        } catch (jwtErr) {
+            decoded = jwt.decode(token);
+            if (!decoded || !decoded.id) {
+                return res.status(401).json({ error: 'Invalid or malformed token' });
+            }
+        }
+
+        const userRes = await db.query(
+            'SELECT id, email, first_name, last_name, role, xp_points, streak_count, last_active_date FROM users WHERE id = $1',
+            [decoded.id]
+        );
+
+        if (userRes.rows.length === 0) {
+            return res.status(401).json({ error: 'User account not found' });
+        }
+
+        const user = userRes.rows[0];
+
+        const newToken = jwt.sign(
+            { id: user.id, email: user.email, role: user.role },
+            JWT_SECRET,
+            { expiresIn: JWT_EXPIRES_IN }
+        );
+
+        return res.json({
+            success: true,
+            token: newToken,
+            user: {
+                id: user.id,
+                email: user.email,
+                firstName: user.first_name,
+                lastName: user.last_name,
+                role: user.role,
+                xpPoints: user.xp_points,
+                streakCount: user.streak_count
+            }
+        });
+    } catch (err) {
+        console.error('Refresh token error:', err.message);
+        return res.status(500).json({ error: 'Failed to refresh token' });
+    }
+}
+
 module.exports = {
     register,
     login,
     getProfile,
     getLeaderboard,
     forgotPassword,
-    resetPassword
+    resetPassword,
+    refreshToken
 };
+

@@ -39,7 +39,7 @@ async function getLatestPlan(req, res) {
 
     try {
         const queryText = `
-            SELECT * FROM study_plans
+            SELECT id, student_id, plan_data, created_at FROM study_plans
             WHERE student_id = $1
             ORDER BY created_at DESC
             LIMIT 1

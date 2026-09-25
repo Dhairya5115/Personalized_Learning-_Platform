@@ -23,28 +23,24 @@ import {
 } from './pages/TaPages';
 
 function MainAppContent() {
-    const { user, loading } = useAuth();
-    const [loaderFinished, setLoaderFinished] = useState(false);
-    const navigate = useNavigate();
+    const { user, loading, postLoginLoading, setPostLoginLoading } = useAuth();
+    const [hasBooted, setHasBooted] = useState(!sessionStorage.getItem('token'));
 
-    useEffect(() => {
-        if (user) {
-            setLoaderFinished(false);
-        } else {
-            setLoaderFinished(true);
-        }
-    }, [user]);
+    if (loading || !hasBooted) {
+        return <Loader onFinished={() => setHasBooted(true)} />;
+    }
 
-    if (loading || !loaderFinished) {
-        return <Loader onFinished={() => setLoaderFinished(true)} />;
+    if (postLoginLoading) {
+        return <Loader onFinished={() => setPostLoginLoading(false)} />;
     }
 
     if (!user) {
         return <Login />;
     }
 
+
     return (
-        <div className="flex min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
+        <div className="flex min-h-screen bg-[var(--color-bg)] text-[var(--color-text)] transition-colors duration-200">
             <Sidebar />
             <main className="flex-1 p-6 md:p-10 overflow-y-auto max-w-7xl mx-auto w-full">
                 <Routes>
@@ -93,12 +89,12 @@ export default function App() {
         <AuthProvider>
             <ThemeProvider>
                 {toast && (
-                    <div className={`fixed bottom-6 right-6 z-[99999] flex items-center gap-3 px-4 py-3 rounded-2xl border shadow-lg animate-in slide-in-from-bottom-5 duration-200 select-none ${
+                    <div className={`fixed bottom-6 right-6 z-[100000] flex items-center gap-3 px-5 py-3 rounded-[94px] border shadow-md animate-in slide-in-from-bottom-5 duration-200 select-none ${
                         toast.type === 'error' 
-                            ? 'bg-rose-500/10 border-rose-500/30 text-rose-600 dark:text-rose-400' 
+                            ? 'bg-[#d64000] text-white border-[#d64000]' 
                             : toast.type === 'warning'
-                                ? 'bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400'
-                                : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-450'
+                                ? 'bg-[#edebe3] text-[#00262b] border-[#e1ddd1]'
+                                : 'bg-[#00262b] text-[#ffffff] border-[#00262b]'
                     }`}>
                         <span className="text-sm font-semibold">{toast.message}</span>
                     </div>

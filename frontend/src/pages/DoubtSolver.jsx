@@ -3,7 +3,7 @@ import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { 
     Send, HelpCircle, Bot, User, Sparkles, Trash2, 
-    Users, Calendar, Video, Clock, CheckCircle, AlertCircle, Plus 
+    Users, Calendar, Video, Clock, CheckCircle, AlertCircle, Plus, ChevronRight 
 } from 'lucide-react';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
@@ -12,82 +12,86 @@ import ConfirmModal from '../components/ConfirmModal';
 // LaTeX & KaTeX Markdown parser to render formatted educational answers with LaTeX support
 function parseMarkdownToHtml(text) {
     if (!text) return '';
+    try {
+        let str = typeof text === 'string' ? text : String(text);
+        const mathPlaceholders = [];
 
-    const mathPlaceholders = [];
-    let processedText = text;
+        // 1. Extract and render display math \[ ... \]
+        str = str.replace(/\\\[([\s\S]*?)\\\]/g, (match, mathContent) => {
+            try {
+                const html = `<div class="my-4 overflow-x-auto flex justify-center w-full math-display">${katex.renderToString(mathContent.trim(), { displayMode: true, throwOnError: false })}</div>`;
+                const index = mathPlaceholders.length;
+                mathPlaceholders.push(html);
+                return `__MATH_PLACEHOLDER_${index}__`;
+            } catch (e) {
+                console.error("KaTeX display math error: ", e);
+                return match;
+            }
+        });
 
-    // 1. Extract and render display math \[ ... \]
-    processedText = processedText.replace(/\\\[([\s\S]*?)\\\]/g, (match, mathContent) => {
-        try {
-            const html = `<div class="my-4 overflow-x-auto flex justify-center w-full math-display">${katex.renderToString(mathContent.trim(), { displayMode: true, throwOnError: false })}</div>`;
-            const index = mathPlaceholders.length;
-            mathPlaceholders.push(html);
-            return `__MATH_PLACEHOLDER_${index}__`;
-        } catch (e) {
-            console.error("KaTeX error: ", e);
-            return match;
+        // 2. Extract and render inline math \( ... \)
+        str = str.replace(/\\\(([\s\S]*?)\\\)/g, (match, mathContent) => {
+            try {
+                const html = `<span class="math-inline">${katex.renderToString(mathContent.trim(), { displayMode: false, throwOnError: false })}</span>`;
+                const index = mathPlaceholders.length;
+                mathPlaceholders.push(html);
+                return `__MATH_PLACEHOLDER_${index}__`;
+            } catch (e) {
+                console.error("KaTeX inline math error: ", e);
+                return match;
+            }
+        });
+
+        // 3. Process normal markdown rules
+        let html = str
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+        
+        // Code blocks
+        html = html.replace(/```(?:javascript|js|python|html|css)?([\s\S]*?)```/g, 
+            '<pre class="bg-[#f3f1ed] border border-[#edebe3] p-4 rounded-xl overflow-x-auto my-3 font-mono text-xs text-[#00262b]"><code class="bg-transparent p-0">$1</code></pre>'
+        );
+        
+        // Inline code
+        html = html.replace(/`([^`]+)`/g, 
+            '<code class="bg-[#f3f1ed] px-1.5 py-0.5 rounded text-xs font-mono text-[#00262b] font-bold">$1</code>'
+        );
+        
+        // Headings
+        html = html.replace(/^### (.*$)/gim, '<h4 class="text-xs font-extrabold uppercase tracking-wider text-[#04c5e7] mt-4 mb-2">$1</h4>');
+        html = html.replace(/^## (.*$)/gim, '<h3 class="text-sm font-extrabold text-[#00262b] mt-5 mb-2 pb-1 border-b border-[#f3f1ed]">$1</h3>');
+        html = html.replace(/^# (.*$)/gim, '<h2 class="text-base font-black text-[#00262b] mt-6 mb-3">$1</h2>');
+        
+        // Bold text
+        html = html.replace(/\*\*([^*]+)\*\*/g, '<strong class="font-extrabold text-[#00262b]">$1</strong>');
+        
+        // Unordered lists
+        html = html.replace(/^\* (.*$)/gim, '<li class="ml-4 list-disc mb-1.5 text-left text-[#00262b]">$1</li>');
+        html = html.replace(/^- (.*$)/gim, '<li class="ml-4 list-disc mb-1.5 text-left text-[#00262b]">$1</li>');
+        
+        let linesProcessed = html.split('\n').map(line => {
+            const trimmed = line.trim();
+            if (trimmed.startsWith('<h') || trimmed.startsWith('<li') || trimmed.startsWith('<pre') || trimmed.startsWith('</pre') || trimmed.startsWith('<code') || trimmed.startsWith('</code')) {
+                return line;
+            }
+            return trimmed ? `<p class="mb-3 leading-relaxed text-left text-sm text-[#00262b]">${line}</p>` : '';
+        }).join('\n');
+
+        // 4. Put LaTeX HTML back
+        for (let i = 0; i < mathPlaceholders.length; i++) {
+            linesProcessed = linesProcessed.replace(`__MATH_PLACEHOLDER_${i}__`, () => mathPlaceholders[i]);
         }
-    });
 
-    // 2. Extract and render inline math \( ... \)
-    processedText = processedText.replace(/\\\(([\s\S]*?)\\\)/g, (match, mathContent) => {
-        try {
-            const html = `<span class="math-inline">${katex.renderToString(mathContent.trim(), { displayMode: false, throwOnError: false })}</span>`;
-            const index = mathPlaceholders.length;
-            mathPlaceholders.push(html);
-            return `__MATH_PLACEHOLDER_${index}__`;
-        } catch (e) {
-            console.error("KaTeX error: ", e);
-            return match;
-        }
-    });
-
-    // 3. Process normal markdown rules
-    let html = processedText
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
-    
-    // Code blocks
-    html = html.replace(/```(?:javascript|js|python|html|css)?([\s\S]*?)```/g, 
-        '<pre class="bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 p-4 rounded-xl overflow-x-auto my-3 font-mono text-xs text-indigo-600 dark:text-indigo-400"><code class="bg-transparent p-0">$1</code></pre>'
-    );
-    
-    // Inline code
-    html = html.replace(/`([^`]+)`/g, 
-        '<code class="bg-slate-100 dark:bg-slate-850 px-1.5 py-0.5 rounded text-xs font-mono text-indigo-600 dark:text-indigo-400">$1</code>'
-    );
-    
-    // Headings
-    html = html.replace(/^### (.*$)/gim, '<h4 class="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 mt-4 mb-2">$1</h4>');
-    html = html.replace(/^## (.*$)/gim, '<h3 class="text-sm font-bold text-slate-800 dark:text-slate-200 mt-5 mb-2 pb-1 border-b border-slate-100 dark:border-slate-850">$1</h3>');
-    html = html.replace(/^# (.*$)/gim, '<h2 class="text-base font-extrabold text-slate-900 dark:text-white mt-6 mb-3">$1</h2>');
-    
-    // Bold text
-    html = html.replace(/\*\*([^*]+)\*\*/g, '<strong class="font-bold text-slate-900 dark:text-white">$1</strong>');
-    
-    // Unordered lists
-    html = html.replace(/^\* (.*$)/gim, '<li class="ml-4 list-disc mb-1.5 text-left">$1</li>');
-    html = html.replace(/^- (.*$)/gim, '<li class="ml-4 list-disc mb-1.5 text-left">$1</li>');
-    
-    let linesProcessed = html.split('\n').map(line => {
-        const trimmed = line.trim();
-        if (trimmed.startsWith('<h') || trimmed.startsWith('<li') || trimmed.startsWith('<pre') || trimmed.startsWith('</pre') || trimmed.startsWith('<code') || trimmed.startsWith('</code')) {
-            return line;
-        }
-        return trimmed ? `<p class="mb-3 leading-relaxed text-left text-sm text-slate-700 dark:text-slate-300">${line}</p>` : '';
-    }).join('\n');
-
-    // 4. Put LaTeX HTML back
-    for (let i = 0; i < mathPlaceholders.length; i++) {
-        linesProcessed = linesProcessed.replace(`__MATH_PLACEHOLDER_${i}__`, () => mathPlaceholders[i]);
+        return linesProcessed;
+    } catch (e) {
+        console.error("Markdown parsing error: ", e);
+        return typeof text === 'string' ? text : '';
     }
-
-    return linesProcessed;
 }
 
 function extractSuggestions(text) {
-    if (!text) return { cleanText: '', suggestions: [] };
+    if (!text || typeof text !== 'string') return { cleanText: String(text || ''), suggestions: [] };
     const regex = /\[Suggestions:\s*(.*?)\s*\]/is;
     const match = text.match(regex);
     if (match) {
@@ -118,6 +122,9 @@ export default function DoubtSolver({ context, onClearContext }) {
     const [availableTas, setAvailableTas] = useState([]);
     const [taRequests, setTaRequests] = useState([]);
     const [loadingTa, setLoadingTa] = useState(false);
+    const [taError, setTaError] = useState('');
+    const [submittingRequest, setSubmittingRequest] = useState(false);
+    const [modalError, setModalError] = useState('');
     const [selectedTa, setSelectedTa] = useState(null);
     const [requestSubject, setRequestSubject] = useState('');
     const [requestDescription, setRequestDescription] = useState('');
@@ -134,7 +141,7 @@ export default function DoubtSolver({ context, onClearContext }) {
     // Load persistent history on mount or when context changes
     useEffect(() => {
         const cacheKey = `doubt_history_${user?.id || 'guest'}_${courseId || 'general'}`;
-        const saved = localStorage.getItem(cacheKey);
+        const saved = sessionStorage.getItem(cacheKey);
         if (saved) {
             try {
                 const parsed = JSON.parse(saved);
@@ -165,15 +172,17 @@ export default function DoubtSolver({ context, onClearContext }) {
 
     const fetchHumanTaData = async () => {
         setLoadingTa(true);
+        setTaError('');
         try {
             const [tas, reqs] = await Promise.all([
                 api.getAvailableTasForStudent(),
                 api.getStudentTaRequests()
             ]);
-            setAvailableTas(tas || []);
-            setTaRequests(reqs || []);
+            setAvailableTas(Array.isArray(tas) ? tas : []);
+            setTaRequests(Array.isArray(reqs) ? reqs : []);
         } catch (err) {
             console.error('Error fetching Human TA data:', err);
+            setTaError(err.message || 'Failed to load Teaching Assistant details. Please try again.');
         } finally {
             setLoadingTa(false);
         }
@@ -183,14 +192,14 @@ export default function DoubtSolver({ context, onClearContext }) {
     useEffect(() => {
         if (messages.length === 0) return;
         const cacheKey = `doubt_history_${user?.id || 'guest'}_${courseId || 'general'}`;
-        localStorage.setItem(cacheKey, JSON.stringify(messages));
+        sessionStorage.setItem(cacheKey, JSON.stringify(messages));
     }, [messages, user?.id, courseId]);
 
     const [showClearModal, setShowClearModal] = useState(false);
 
     const handleClearHistoryConfirm = () => {
         const cacheKey = `doubt_history_${user?.id || 'guest'}_${courseId || 'general'}`;
-        localStorage.removeItem(cacheKey);
+        sessionStorage.removeItem(cacheKey);
         setMessages([
             {
                 sender: 'bot',
@@ -206,39 +215,60 @@ export default function DoubtSolver({ context, onClearContext }) {
     };
 
     const sendQuery = async (queryText) => {
-        if (!queryText.trim() || loading) return;
+        if (!queryText || typeof queryText !== 'string' || !queryText.trim() || loading) return;
 
+        const trimmed = queryText.trim();
+        const userMsg = { sender: 'user', text: trimmed, timestamp: new Date() };
         const updatedMessages = [
             ...messages,
-            { sender: 'user', text: queryText, timestamp: new Date() }
+            userMsg
         ];
         setMessages(updatedMessages);
         setLoading(true);
 
         try {
-            const data = await api.solveDoubt(queryText, courseId, topicId);
-            const { cleanText, suggestions } = extractSuggestions(data.answer);
+            const data = await api.solveDoubt(trimmed, courseId, topicId);
+            
+            let rawAnswer = '';
+            if (typeof data === 'string') {
+                rawAnswer = data;
+            } else if (data && typeof data.answer === 'string') {
+                rawAnswer = data.answer;
+            } else if (data && data.text) {
+                rawAnswer = data.text;
+            } else if (data && data.message) {
+                rawAnswer = data.message;
+            } else {
+                rawAnswer = 'I received your query but was unable to formulate a response. Please try rephrasing your question.';
+            }
+
+            const { cleanText, suggestions } = extractSuggestions(rawAnswer);
             
             setMessages([
                 ...updatedMessages,
                 { 
                     sender: 'bot', 
-                    text: cleanText, 
+                    text: cleanText || 'Here is what I found.', 
                     timestamp: new Date(),
-                    source: data.source,
-                    suggestions: suggestions
+                    source: data?.source || 'AI Tutor',
+                    suggestions: Array.isArray(suggestions) ? suggestions : []
                 }
             ]);
         } catch (err) {
+            console.error('Error fetching AI doubt solution:', err);
             setMessages([
                 ...updatedMessages,
                 { 
                     sender: 'bot', 
-                    text: `Sorry, I had trouble answering your question: "${err.message}". Please check your internet and try again.`, 
+                    text: `Something went wrong getting an answer (${err?.message || 'Network request failed'}). Please check your connection and try again.`, 
                     timestamp: new Date(),
+                    isError: true,
                     suggestions: []
                 }
             ]);
+            if (window.showToast) {
+                window.showToast('Something went wrong getting an answer, please try again', 'error');
+            }
         } finally {
             setLoading(false);
         }
@@ -256,25 +286,41 @@ export default function DoubtSolver({ context, onClearContext }) {
         sendQuery(suggestionText);
     };
 
+    const getInitials = (firstName, lastName) => {
+        const f = (firstName && typeof firstName === 'string' && firstName.trim().length > 0) ? firstName.trim()[0].toUpperCase() : 'T';
+        const l = (lastName && typeof lastName === 'string' && lastName.trim().length > 0) ? lastName.trim()[0].toUpperCase() : 'A';
+        return `${f}${l}`;
+    };
+
     const handleTaRequestSubmit = async (e) => {
         e.preventDefault();
-        if (!selectedTa) return;
+        if (!selectedTa || !selectedTa.ta_id || !selectedTa.course_id) {
+            setModalError('Please select a valid Teaching Assistant.');
+            return;
+        }
+        if (!requestSubject.trim() || !requestDescription.trim()) {
+            setModalError('Please provide both subject and detailed description.');
+            return;
+        }
         setSubmittingRequest(true);
+        setModalError('');
 
         try {
             await api.createTaDoubtRequest(
                 selectedTa.ta_id,
                 selectedTa.course_id,
-                requestSubject,
-                requestDescription
+                requestSubject.trim(),
+                requestDescription.trim()
             );
             if (window.showToast) window.showToast('Doubt request sent to TA successfully!', 'success');
             setRequestModalOpen(false);
             setSelectedTa(null);
             setRequestSubject('');
             setRequestDescription('');
+            setModalError('');
             fetchHumanTaData();
         } catch (err) {
+            setModalError(err.message || 'Failed to submit request');
             if (window.showToast) window.showToast(err.message || 'Failed to submit request', 'error');
         } finally {
             setSubmittingRequest(false);
@@ -298,191 +344,174 @@ export default function DoubtSolver({ context, onClearContext }) {
             />
 
             {/* Top Toggle Header */}
-            <header className="h-20 border-b border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md flex items-center justify-between px-8 shrink-0 rounded-t-2xl">
+            <header className="px-6 py-4 bg-[#ffffff] border-b border-[#edebe3] flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm z-10">
                 <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-lg transition-colors ${
-                        solverMode === 'AI' ? 'bg-indigo-600 shadow-indigo-100 dark:shadow-none' : 'bg-emerald-600 shadow-emerald-100 dark:shadow-none'
-                    }`}>
-                        {solverMode === 'AI' ? <Bot size={24} /> : <Users size={24} />}
+                    <div className="bg-[#00262b] p-2.5 rounded-2xl text-[#04c5e7] shadow-sm">
+                        <Sparkles size={20} />
                     </div>
                     <div>
-                        <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                            {solverMode === 'AI' ? 'AI Academic Tutor' : 'Human Teaching Assistants'}
+                        <h2 className="text-xl font-extrabold text-[#00262b] leading-tight">
+                            Personal Doubt & Practice Solver
                         </h2>
-                        <div className="flex items-center gap-1.5">
-                            <div className={`w-1.5 h-1.5 rounded-full animate-pulse ${solverMode === 'AI' ? 'bg-indigo-500' : 'bg-emerald-500'}`} />
-                            <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
-                                {solverMode === 'AI' ? 'Instant 24/7 AI Assistance' : '1-on-1 Virtual TA Sessions'}
-                            </span>
-                        </div>
+                        <p className="text-xs text-[#52716c] font-medium">
+                            {courseTitle 
+                                ? `Active context: ${courseTitle}${topicTitle ? ` • ${topicTitle}` : ''}`
+                                : 'Get 24/7 AI tutor explanations or request 1-on-1 human TA sessions'}
+                        </p>
                     </div>
                 </div>
 
-                {/* Right Header Actions */}
-                <div className="flex items-center gap-3">
-                    {solverMode === 'AI' && (
-                        <button
-                            onClick={() => setShowClearModal(true)}
-                            className="p-2 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-xl transition-colors"
-                            title="Clear Chat History"
-                        >
-                            <Trash2 size={16} />
-                        </button>
-                    )}
-
-                    {/* Mode Selector Switch */}
-                    <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-2xl border border-slate-200 dark:border-slate-700">
-                        <button
-                            onClick={() => setSolverMode('AI')}
-                            className={`flex items-center gap-2 px-4 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                                solverMode === 'AI'
-                                    ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
-                                    : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-                            }`}
-                        >
-                            <Bot size={14} /> AI Doubt Solver
-                        </button>
-                        <button
-                            onClick={() => setSolverMode('HUMAN')}
-                            className={`flex items-center gap-2 px-4 py-1.5 rounded-xl text-xs font-bold transition-all ${
-                                solverMode === 'HUMAN'
-                                    ? 'bg-white dark:bg-slate-900 text-emerald-600 dark:text-emerald-400 shadow-sm'
-                                    : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
-                            }`}
-                        >
-                            <Users size={14} /> Human TA
-                        </button>
-                    </div>
+                {/* Mode Switch Pills */}
+                <div className="flex items-center p-1 bg-[#f9f8f6] border border-[#edebe3] rounded-[94px] self-start sm:self-auto">
+                    <button
+                        onClick={() => setSolverMode('AI')}
+                        className={`flex items-center gap-2 px-5 py-2 rounded-[94px] text-xs font-extrabold transition-all duration-200 ${
+                            solverMode === 'AI'
+                                ? 'bg-[#04c5e7] text-[#00262b] shadow-sm'
+                                : 'text-[#00262b] hover:text-[#04c5e7]'
+                        }`}
+                    >
+                        <Bot size={15} />
+                        <span>AI Tutor</span>
+                    </button>
+                    <button
+                        onClick={() => setSolverMode('HUMAN')}
+                        className={`flex items-center gap-2 px-5 py-2 rounded-[94px] text-xs font-extrabold transition-all duration-200 ${
+                            solverMode === 'HUMAN'
+                                ? 'bg-[#04c5e7] text-[#00262b] shadow-sm'
+                                : 'text-[#00262b] hover:text-[#04c5e7]'
+                        }`}
+                    >
+                        <Users size={15} />
+                        <span>Human TA</span>
+                    </button>
                 </div>
             </header>
 
             {/* ==================== AI SOLVER MODE ==================== */}
             {solverMode === 'AI' && (
                 <>
-                    {/* Context focus Banner */}
-                    {courseTitle && (
-                        <div className="bg-indigo-50/50 dark:bg-indigo-950/20 border-b border-slate-200 dark:border-slate-800 px-8 py-3 flex items-center justify-between text-xs text-indigo-700 dark:text-indigo-400 shrink-0">
-                            <div className="flex items-center gap-2">
-                                <Sparkles size={13} className="text-indigo-600 dark:text-indigo-400 animate-pulse" />
-                                <span>
-                                    AI Tutor currently focused on: <strong className="font-bold">{courseTitle}</strong>
-                                    {topicTitle && <> &gt; <strong className="font-bold">{topicTitle}</strong></>}
-                                </span>
-                            </div>
-                            <button 
-                                onClick={onClearContext}
-                                className="font-bold hover:underline text-indigo-600 dark:text-indigo-400"
-                            >
-                                Reset focus
-                            </button>
-                        </div>
-                    )}
-
                     {/* Chat Messages Log */}
-                    <div className="flex-1 overflow-y-auto p-8 space-y-6 scrollbar">
-                        {messages.map((msg, idx) => {
+                    <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-6 scrollbar bg-[#ffffff]">
+                        {messages.map((msg, index) => {
                             const isBot = msg.sender === 'bot';
                             return (
-                                <div key={idx} className={`flex gap-4 ${isBot ? 'self-start' : 'flex-row-reverse ml-auto'}`}>
-                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 shadow-sm ${
-                                        isBot ? 'bg-indigo-600 text-white' : 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                                <div
+                                    key={index}
+                                    className={`flex gap-3 md:gap-4 max-w-3xl ${isBot ? 'mr-auto' : 'ml-auto flex-row-reverse'}`}
+                                >
+                                    {/* Avatar */}
+                                    <div className={`w-9 h-9 rounded-2xl flex items-center justify-center shrink-0 shadow-sm ${
+                                        isBot 
+                                            ? 'bg-[#00262b] text-[#04c5e7]' 
+                                            : 'bg-[#f3f1ed] text-[#00262b] border border-[#e1ddd1]'
                                     }`}>
-                                        {isBot ? <Bot size={20} /> : <User size={20} />}
+                                        {isBot ? <Bot size={18} /> : <User size={18} />}
                                     </div>
-                                    <div className={`max-w-2xl ${isBot ? '' : 'text-right'}`}>
-                                        <div className={`p-6 rounded-2xl border ${
-                                            isBot 
-                                                ? 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 shadow-sm text-slate-800 dark:text-slate-200 text-left' 
-                                                : 'bg-indigo-600 border-indigo-500 text-white text-left'
+
+                                    {/* Bubble */}
+                                    <div className={`space-y-2 max-w-[85%]`}>
+                                        <div className={`p-4 md:p-5 rounded-2xl text-sm leading-relaxed ${
+                                            isBot
+                                                ? msg.isError
+                                                    ? 'bg-[#ffffff] text-[#d64000] border-2 border-[#d64000]/40 shadow-sm'
+                                                    : 'bg-[#ffffff] text-[#00262b] border border-[#edebe3] shadow-sm'
+                                                : 'bg-[#00262b] text-[#ffffff] shadow-sm'
                                         }`}>
                                             {isBot ? (
-                                                <div 
-                                                    dangerouslySetInnerHTML={{ __html: parseMarkdownToHtml(msg.text) }} 
-                                                    className="prose dark:prose-invert max-w-none text-sm leading-relaxed"
-                                                />
+                                                msg.isError ? (
+                                                    <div className="flex items-start gap-2.5">
+                                                        <AlertCircle size={18} className="shrink-0 mt-0.5 text-[#d64000]" />
+                                                        <p className="font-semibold text-sm">{msg.text}</p>
+                                                    </div>
+                                                ) : (
+                                                    <div 
+                                                        dangerouslySetInnerHTML={{ __html: parseMarkdownToHtml(msg.text) }} 
+                                                        className="prose max-w-none text-sm leading-relaxed text-[#00262b]"
+                                                    />
+                                                )
                                             ) : (
-                                                <p className="text-sm whitespace-pre-wrap leading-relaxed">
-                                                    {msg.text}
-                                                </p>
+                                                <p className="whitespace-pre-wrap">{msg.text}</p>
                                             )}
                                         </div>
-                                        <p className="mt-2 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
-                                            {(() => {
-                                                try {
-                                                    const d = msg.timestamp instanceof Date ? msg.timestamp : new Date(msg.timestamp || Date.now());
-                                                    return isNaN(d.getTime()) ? '' : d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-                                                } catch (e) {
-                                                    return '';
-                                                }
-                                            })()}
-                                            {msg.source && ` • Saved Cache`}
-                                        </p>
+
+                                        <span className={`block text-[10px] font-bold text-[#52716c] uppercase tracking-wider ${isBot ? 'text-left pl-1' : 'text-right pr-1'}`}>
+                                            {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </span>
                                     </div>
                                 </div>
                             );
                         })}
 
+                        {/* Loading / Typing Indicator */}
                         {loading && (
-                            <div className="flex gap-4 self-start">
-                                <div className="w-10 h-10 rounded-full bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-sm">
-                                    <Bot size={20} />
+                            <div className="flex gap-3 max-w-3xl mr-auto">
+                                <div className="w-9 h-9 rounded-2xl bg-[#00262b] text-[#04c5e7] flex items-center justify-center shrink-0 shadow-sm">
+                                    <Bot size={18} />
                                 </div>
-                                <div className="p-5 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-sm flex items-center gap-1.5">
-                                    <span className="w-2 h-2 bg-indigo-600 dark:bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                                    <span className="w-2 h-2 bg-indigo-600 dark:bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                                    <span className="w-2 h-2 bg-indigo-600 dark:bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                                <div className="p-4 rounded-2xl bg-[#ffffff] border border-[#edebe3] shadow-sm flex items-center gap-2">
+                                    <span className="w-2 h-2 rounded-full bg-[#00262b] animate-pulse"></span>
+                                    <span className="w-2 h-2 rounded-full bg-[#00262b] animate-pulse" style={{ animationDelay: '200ms' }}></span>
+                                    <span className="w-2 h-2 rounded-full bg-[#00262b] animate-pulse" style={{ animationDelay: '400ms' }}></span>
+                                    <span className="text-xs font-bold text-[#52716c] ml-2">Thinking...</span>
                                 </div>
                             </div>
                         )}
 
+                        {/* Smart AI Suggestions */}
                         {showSuggestions && (
-                            <div className="flex flex-wrap gap-2 pt-2 pl-14 justify-start">
-                                {lastMsg.suggestions.map((suggestion, sIdx) => (
-                                    <button
-                                        key={sIdx}
-                                        onClick={() => triggerSuggestion(suggestion)}
-                                        className="px-3.5 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg text-xs font-bold text-slate-600 dark:text-slate-350 transition-colors"
-                                    >
-                                        {suggestion}
-                                    </button>
-                                ))}
+                            <div className="space-y-2 pt-2 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                <span className="text-xs font-extrabold text-[#52716c] uppercase tracking-wider block">
+                                    Suggested Follow-ups:
+                                </span>
+                                <div className="flex flex-wrap gap-2">
+                                    {lastMsg.suggestions.map((sug, sIdx) => (
+                                        <button
+                                            key={sIdx}
+                                            onClick={() => triggerSuggestion(sug)}
+                                            className="btn-ghost !text-xs !py-1.5 !px-3.5 flex items-center gap-1.5 hover:border-[#04c5e7]"
+                                        >
+                                            <span>{sug}</span>
+                                            <ChevronRight size={12} className="text-[#04c5e7]" />
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
                         )}
+
                         <div ref={messagesEndRef} />
                     </div>
 
-                    {/* Chat Input Area */}
-                    <footer className="p-8 bg-white dark:bg-slate-900/60 border-t border-slate-100 dark:border-slate-800 shrink-0">
-                        <div className="max-w-5xl mx-auto">
+                    {/* Chat Input Bar */}
+                    <footer className="p-4 md:p-6 bg-[#ffffff] border-t border-[#edebe3] shadow-lg">
+                        <div className="max-w-4xl mx-auto space-y-3">
                             <form onSubmit={handleSend} className="relative flex items-center">
-                                <input 
-                                    type="text" 
-                                    placeholder={courseTitle ? `Ask AI Tutor about ${courseTitle}...` : "Ask a doubt about Calculus, Computer Architecture, or anything else..."}
-                                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl py-5 pl-6 pr-24 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all shadow-sm text-slate-900 dark:text-slate-100 placeholder-slate-400"
+                                <input
+                                    type="text"
                                     value={inputQuery}
                                     onChange={(e) => setInputQuery(e.target.value)}
-                                    required
+                                    placeholder={courseTitle ? `Ask anything about ${courseTitle}...` : "Ask any question about programming, data structures, math..."}
                                     disabled={loading}
+                                    className="w-full pl-5 pr-14 py-3.5 bg-[#ffffff] border-2 border-[#e1ddd1] rounded-[94px] text-sm text-[#00262b] placeholder:text-[#52716c] focus:outline-none focus:border-[#00262b] shadow-sm transition-all"
                                 />
-                                <div className="absolute right-4 flex items-center gap-2">
-                                    <button 
-                                        type="submit" 
-                                        disabled={loading}
-                                        className="p-2 bg-indigo-600 text-white rounded-xl shadow-lg shadow-indigo-100 dark:shadow-none hover:bg-indigo-700 transition-all disabled:opacity-50"
-                                    >
-                                        <Send size={18} />
-                                    </button>
-                                </div>
+                                <button
+                                    type="submit"
+                                    disabled={!inputQuery.trim() || loading}
+                                    className="absolute right-2 p-2.5 bg-[#00262b] text-[#ffffff] hover:bg-[#04c5e7] hover:text-[#00262b] disabled:opacity-40 rounded-full transition-all shadow-sm"
+                                    title="Send question"
+                                >
+                                    <Send size={16} />
+                                </button>
                             </form>
-                            <div className="mt-3 flex items-center justify-between px-2">
-                                <button 
-                                    type="button"
+
+                            <div className="flex items-center justify-between px-2">
+                                <button
                                     onClick={() => setShowClearModal(true)}
-                                    className="text-[10px] font-bold text-slate-400 hover:text-rose-600 uppercase tracking-widest transition-colors flex items-center gap-1"
+                                    className="text-xs font-bold text-[#52716c] hover:text-[#d64000] flex items-center gap-1 transition-colors"
                                 >
                                     <Trash2 size={12} /> Clear Chat
                                 </button>
-                                <p className="text-[10px] font-bold text-slate-300 dark:text-slate-600 uppercase tracking-widest">
+                                <p className="text-[10px] font-bold text-[#52716c] uppercase tracking-widest">
                                     AI can make mistakes. Verify critical facts.
                                 </p>
                             </div>
@@ -493,10 +522,22 @@ export default function DoubtSolver({ context, onClearContext }) {
 
             {/* ==================== HUMAN TA MODE ==================== */}
             {solverMode === 'HUMAN' && (
-                <div className="flex-1 overflow-y-auto p-8 space-y-8 scrollbar bg-slate-50/50 dark:bg-slate-950/40">
+                <div className="flex-1 overflow-y-auto p-8 space-y-8 scrollbar bg-[#ffffff]">
                     {loadingTa ? (
-                        <div className="flex items-center justify-center min-h-[300px]">
-                            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-emerald-600"></div>
+                        <div className="flex flex-col items-center justify-center min-h-[300px] text-[#52716c] gap-3">
+                            <div className="w-8 h-8 rounded-full border-3 border-[#00262b] border-t-transparent animate-spin"></div>
+                            <span className="text-xs font-bold uppercase tracking-wider">Loading Teaching Assistant details...</span>
+                        </div>
+                    ) : taError ? (
+                        <div className="p-8 text-center bg-[#ffffff] border border-[#edebe3] rounded-2xl space-y-4 shadow-sm">
+                            <div className="w-12 h-12 rounded-full bg-[#f3f1ed] text-[#d64000] flex items-center justify-center mx-auto font-bold text-lg">!</div>
+                            <h4 className="font-extrabold text-[#00262b] text-base">{taError}</h4>
+                            <button
+                                onClick={fetchHumanTaData}
+                                className="btn-primary !text-xs !py-2 !px-4"
+                            >
+                                Try Again
+                            </button>
                         </div>
                     ) : (
                         <>
@@ -504,58 +545,66 @@ export default function DoubtSolver({ context, onClearContext }) {
                             <div className="space-y-4">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                                            <Users size={20} className="text-emerald-600" />
+                                        <h3 className="text-xl font-extrabold text-[#00262b] flex items-center gap-2">
+                                            <Users size={22} className="text-[#04c5e7]" />
                                             Available Course TAs
                                         </h3>
-                                        <p className="text-xs text-slate-500">TAs assigned to assist in your enrolled courses.</p>
+                                        <p className="text-xs text-[#52716c]">Teaching Assistants assigned to assist in your enrolled courses.</p>
                                     </div>
                                 </div>
 
                                 {availableTas.length === 0 ? (
-                                    <div className="p-8 text-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-slate-400 text-sm">
-                                        No TAs currently assigned to your enrolled courses. Ask your instructor to assign a TA!
+                                    <div className="p-8 text-center bg-[#ffffff] border border-[#edebe3] rounded-2xl text-[#52716c] text-sm shadow-sm space-y-2">
+                                        <p className="font-bold text-[#00262b]">No TAs currently assigned to your enrolled courses.</p>
+                                        <p className="text-xs">Once your instructor approves and assigns a TA to your course, you will be able to request 1-on-1 doubt sessions here.</p>
                                     </div>
                                 ) : (
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        {availableTas.map((ta, idx) => (
-                                            <div key={idx} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 flex items-center justify-between shadow-sm hover:shadow-md transition-all">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-11 h-11 rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 font-bold flex items-center justify-center text-sm border border-emerald-200 dark:border-emerald-800">
-                                                        {ta.first_name[0]}{ta.last_name[0]}
-                                                    </div>
-                                                    <div>
-                                                        <h4 className="font-bold text-slate-900 dark:text-white text-sm">
-                                                            {ta.first_name} {ta.last_name}
-                                                        </h4>
-                                                        <p className="text-xs text-slate-500">Course: {ta.course_title}</p>
-                                                    </div>
-                                                </div>
+                                        {availableTas.map((ta, idx) => {
+                                            const initials = getInitials(ta.first_name, ta.last_name);
+                                            const fullName = `${ta.first_name || 'Teaching'} ${ta.last_name || 'Assistant'}`.trim();
+                                            const courseName = ta.course_title || 'Enrolled Course';
 
-                                                <button
-                                                    onClick={() => {
-                                                        setSelectedTa(ta);
-                                                        setRequestModalOpen(true);
-                                                    }}
-                                                    className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl transition-colors shadow-sm flex items-center gap-1.5"
-                                                >
-                                                    <Plus size={14} /> Request Session
-                                                </button>
-                                            </div>
-                                        ))}
+                                            return (
+                                                <div key={idx} className="bg-[#ffffff] border border-[#edebe3] rounded-2xl p-5 flex items-center justify-between shadow-sm hover:shadow-md transition-all">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-11 h-11 rounded-2xl bg-[#00262b] text-[#04c5e7] font-bold flex items-center justify-center text-sm shadow-sm">
+                                                            {initials}
+                                                        </div>
+                                                        <div>
+                                                            <h4 className="font-extrabold text-[#00262b] text-base">
+                                                                {fullName}
+                                                            </h4>
+                                                            <p className="text-xs text-[#52716c]">Course: {courseName}</p>
+                                                        </div>
+                                                    </div>
+
+                                                    <button
+                                                        onClick={() => {
+                                                            setSelectedTa(ta);
+                                                            setRequestModalOpen(true);
+                                                            setModalError('');
+                                                        }}
+                                                        className="btn-primary !text-xs !py-2 !px-4 flex items-center gap-1.5"
+                                                    >
+                                                        <Plus size={14} /> Request Session
+                                                    </button>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 )}
                             </div>
 
                             {/* Section 2: Student TA Doubt Request History */}
-                            <div className="space-y-4 pt-4 border-t border-slate-200 dark:border-slate-800">
+                            <div className="space-y-4 pt-4 border-t border-[#edebe3]">
                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                                    <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                                        <Clock size={20} className="text-indigo-600" />
+                                    <h3 className="text-xl font-extrabold text-[#00262b] flex items-center gap-2">
+                                        <Clock size={22} className="text-[#04c5e7]" />
                                         My TA Request History
                                     </h3>
 
-                                    {/* Filter Controls (Requirement 5) */}
+                                    {/* Filter Controls */}
                                     <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
                                         {[
                                             { id: 'ALL', label: 'All', count: taRequests.length },
@@ -566,15 +615,15 @@ export default function DoubtSolver({ context, onClearContext }) {
                                             <button
                                                 key={tab.id}
                                                 onClick={() => setRequestFilter(tab.id)}
-                                                className={`px-3 py-1 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                                                className={`px-4 py-1.5 rounded-[94px] text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap ${
                                                     requestFilter === tab.id
-                                                        ? 'bg-indigo-600 text-white shadow-xs'
-                                                        : 'bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800'
+                                                        ? 'bg-[#04c5e7] text-[#00262b] shadow-xs'
+                                                        : 'btn-ghost !py-1 !px-3'
                                                 }`}
                                             >
                                                 <span>{tab.label}</span>
-                                                <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${
-                                                    requestFilter === tab.id ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+                                                <span className={`px-1.5 py-0.2 rounded-[94px] text-[10px] ${
+                                                    requestFilter === tab.id ? 'bg-[#00262b] text-white' : 'bg-[#f3f1ed] text-[#00262b]'
                                                 }`}>
                                                     {tab.count}
                                                 </span>
@@ -584,7 +633,7 @@ export default function DoubtSolver({ context, onClearContext }) {
                                 </div>
 
                                 {taRequests.filter(req => requestFilter === 'ALL' || req.status === requestFilter).length === 0 ? (
-                                    <div className="p-8 text-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl text-slate-400 text-sm">
+                                    <div className="p-8 text-center bg-[#ffffff] border border-[#edebe3] rounded-2xl text-[#52716c] text-sm shadow-sm">
                                         No {requestFilter !== 'ALL' ? requestFilter.toLowerCase() : ''} TA requests found.
                                     </div>
                                 ) : (
@@ -592,72 +641,57 @@ export default function DoubtSolver({ context, onClearContext }) {
                                         {taRequests
                                             .filter(req => requestFilter === 'ALL' || req.status === requestFilter)
                                             .map(req => (
-                                                <div key={req.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 space-y-4 shadow-sm">
-                                                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
+                                                <div key={req.id} className="bg-[#ffffff] border border-[#edebe3] rounded-2xl p-6 space-y-4 shadow-sm">
+                                                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 border-b border-[#f3f1ed] pb-3">
                                                         <div>
-                                                            <span className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
-                                                                Course: {req.course_title}
+                                                            <span className="text-xs font-bold text-[#04c5e7]">
+                                                                Course: {req.course_title || 'Course'}
                                                             </span>
-                                                            <h4 className="font-bold text-slate-900 dark:text-white text-base">
+                                                            <h3 className="font-extrabold text-[#00262b] text-lg mt-0.5">
                                                                 {req.subject}
-                                                            </h4>
-                                                            <p className="text-xs text-slate-400">
-                                                                Assigned TA: {req.ta_first_name} {req.ta_last_name} ({req.ta_email})
+                                                            </h3>
+                                                            <p className="text-xs text-[#52716c]">
+                                                                Assigned TA: {req.ta_first_name || 'TA'} {req.ta_last_name || ''} {req.ta_email ? `(${req.ta_email})` : ''}
                                                             </p>
                                                         </div>
 
-                                                        <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider self-start md:self-auto ${
+                                                        <span className={`px-3 py-1 rounded-[94px] text-xs font-bold uppercase tracking-wider self-start md:self-auto border ${
                                                             req.status === 'SCHEDULED'
-                                                                ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400'
+                                                                ? 'bg-[#f3f1ed] text-[#00262b] border-[#04c5e7]'
                                                                 : req.status === 'RESOLVED'
-                                                                    ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400'
-                                                                    : 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400'
+                                                                    ? 'bg-[#f3f1ed] text-[#00262b] border-[#e1ddd1]'
+                                                                    : 'bg-[#f3f1ed] text-[#d64000] border-[#d64000]/40'
                                                         }`}>
                                                             {req.status}
                                                         </span>
                                                     </div>
 
-                                                    <p className="text-sm text-slate-700 dark:text-slate-300 bg-slate-50 dark:bg-slate-950 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
+                                                    <p className="text-sm text-[#00262b] bg-[#f9f8f6] p-4 rounded-xl border border-[#edebe3]">
                                                         {req.description}
                                                     </p>
 
-                                                    {/* Requirement 6: Meeting link shown ONLY when SCHEDULED */}
+                                                    {/* Meeting Link */}
                                                     {req.meeting_link && req.status === 'SCHEDULED' && (
-                                                        <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/80 rounded-xl space-y-2">
-                                                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                                                                <div>
-                                                                    <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300 block">
-                                                                        📅 Scheduled Meeting: {(() => {
-                                                                            try {
-                                                                                return new Date(req.scheduled_at).toLocaleString('en-US', { dateStyle: 'full', timeStyle: 'short' });
-                                                                            } catch (e) {
-                                                                                return String(req.scheduled_at);
-                                                                            }
-                                                                        })()}
-                                                                    </span>
-                                                                    <span className="text-[11px] text-emerald-600 dark:text-emerald-400">
-                                                                        A calendar invitation (<code>.ics</code>) was sent to your email.
-                                                                    </span>
-                                                                </div>
-                                                                <a 
-                                                                    href={req.meeting_link} 
-                                                                    target="_blank" 
-                                                                    rel="noreferrer" 
-                                                                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition-colors inline-flex items-center gap-1.5 shadow-sm self-start sm:self-auto"
-                                                                >
-                                                                    <Video size={14} /> Join Meeting
-                                                                </a>
+                                                        <div className="p-3 bg-[#f9f8f6] border border-[#04c5e7] rounded-xl text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                                            <div>
+                                                                <span className="font-bold text-[#00262b]">Scheduled Time: </span>
+                                                                <span className="text-[#00262b]">
+                                                                    {req.scheduled_at ? new Date(req.scheduled_at).toLocaleString() : 'Pending Confirmation'}
+                                                                </span>
                                                             </div>
+                                                            <a href={req.meeting_link} target="_blank" rel="noreferrer" className="text-[#00262b] font-bold underline flex items-center gap-1 hover:text-[#04c5e7]">
+                                                                <Video size={14} /> Join Meeting Room
+                                                            </a>
                                                         </div>
                                                     )}
 
                                                     {req.status === 'RESOLVED' && (
-                                                        <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-xl text-xs flex items-center justify-between">
-                                                            <span className="font-bold text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
-                                                                <CheckCircle size={14} /> Session Resolved
+                                                        <div className="p-3 bg-[#f9f8f6] border border-[#edebe3] rounded-xl text-xs flex items-center justify-between">
+                                                            <span className="font-bold text-[#00262b] flex items-center gap-1.5">
+                                                                <CheckCircle size={14} className="text-[#00262b]" /> Session Resolved
                                                             </span>
                                                             {req.scheduled_at && (
-                                                                <span className="text-[11px] text-slate-400">
+                                                                <span className="text-[11px] text-[#52716c]">
                                                                     Completed: {new Date(req.scheduled_at).toLocaleDateString()}
                                                                 </span>
                                                             )}
@@ -675,68 +709,80 @@ export default function DoubtSolver({ context, onClearContext }) {
 
             {/* Student Request Modal */}
             {requestModalOpen && selectedTa && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-6">
-                        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#00262b]/60 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-[#ffffff] border border-[#edebe3] rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-6">
+                        <div className="flex items-center justify-between border-b border-[#f3f1ed] pb-4">
                             <div>
-                                <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                                <h3 className="text-xl font-extrabold text-[#00262b]">
                                     Request TA Session
                                 </h3>
-                                <p className="text-xs text-slate-400">
-                                    TA: {selectedTa.first_name} {selectedTa.last_name} ({selectedTa.course_title})
+                                <p className="text-xs text-[#52716c]">
+                                    TA: {selectedTa.first_name || 'TA'} {selectedTa.last_name || ''} ({selectedTa.course_title || 'Course'})
                                 </p>
                             </div>
                             <button 
-                                onClick={() => setRequestModalOpen(false)}
-                                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                                onClick={() => {
+                                    setRequestModalOpen(false);
+                                    setModalError('');
+                                }}
+                                className="text-[#52716c] hover:text-[#00262b] p-1 rounded-full hover:bg-[#f9f8f6]"
                             >
                                 ✕
                             </button>
                         </div>
 
+                        {modalError && (
+                            <div className="p-3 bg-[#f3f1ed] border border-[#d64000]/30 text-[#d64000] text-xs rounded-xl font-bold">
+                                {modalError}
+                            </div>
+                        )}
+
                         <form onSubmit={handleTaRequestSubmit} className="space-y-4">
                             <div>
-                                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                                <label className="block text-xs font-bold text-[#52716c] uppercase tracking-wider mb-1">
                                     Subject / Topic *
                                 </label>
                                 <input
                                     type="text"
                                     required
                                     placeholder="e.g. Graph Algorithms, Binary Trees, Assignment 2 Help"
-                                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-sm focus:outline-none focus:border-emerald-500"
+                                    className="w-full bg-[#ffffff] border border-[#e1ddd1] rounded-xl p-3 text-sm text-[#00262b] focus:outline-none focus:border-[#04c5e7]"
                                     value={requestSubject}
                                     onChange={(e) => setRequestSubject(e.target.value)}
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                                <label className="block text-xs font-bold text-[#52716c] uppercase tracking-wider mb-1">
                                     Detailed Question Description *
                                 </label>
                                 <textarea
                                     required
                                     rows={4}
                                     placeholder="Describe your doubt or problem in detail..."
-                                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-sm focus:outline-none focus:border-emerald-500"
+                                    className="w-full bg-[#ffffff] border border-[#e1ddd1] rounded-xl p-3 text-sm text-[#00262b] focus:outline-none focus:border-[#04c5e7]"
                                     value={requestDescription}
                                     onChange={(e) => setRequestDescription(e.target.value)}
                                 />
                             </div>
 
-                            <div className="pt-4 flex items-center justify-end gap-3 border-t border-slate-100 dark:border-slate-800">
+                            <div className="pt-4 flex items-center justify-end gap-3 border-t border-[#f3f1ed]">
                                 <button
                                     type="button"
-                                    onClick={() => setRequestModalOpen(false)}
-                                    className="px-4 py-2 text-xs font-medium text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl"
+                                    onClick={() => {
+                                        setRequestModalOpen(false);
+                                        setModalError('');
+                                    }}
+                                    className="btn-ghost !text-xs !py-2 !px-4"
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="submit"
                                     disabled={submittingRequest}
-                                    className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl shadow-md transition-colors"
+                                    className="btn-primary !text-xs !py-2 !px-5"
                                 >
-                                    {submittingRequest ? 'Sending...' : 'Send Request'}
+                                    {submittingRequest ? 'Sending Request...' : 'Send Request'}
                                 </button>
                             </div>
                         </form>

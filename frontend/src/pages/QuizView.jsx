@@ -1,19 +1,31 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
-import { ArrowLeft, Check, AlertCircle, Award, Flame, CheckCircle, X, Sparkles } from 'lucide-react';
+import { 
+    ArrowLeft, Check, AlertCircle, Award, CheckCircle, X, 
+    Sparkles, ShieldCheck, Eye, ClipboardList, BookOpen 
+} from 'lucide-react';
 import ConfirmModal from '../components/ConfirmModal';
 
 export default function QuizView({ quiz: quizProp, onBack: onBackProp }) {
     const { quizId: paramQuizId } = useParams();
     const navigate = useNavigate();
+    const { user } = useAuth();
+
+    const isTa = user?.role === 'TA';
 
     const [fetchedQuiz, setFetchedQuiz] = useState(null);
     const quiz = quizProp || fetchedQuiz || { id: paramQuizId, title: 'Adaptive Practice Quiz' };
     const onBack = onBackProp || (() => navigate(-1));
 
+    // TA Read-Only state
+    const [taQuestions, setTaQuestions] = useState([]);
+    const [taLoading, setTaLoading] = useState(isTa);
+
+    // Student Attempt state
     const [question, setQuestion] = useState(null);
-    const [loading, setLoading] = useState(true);
+    const [loading, setLoading] = useState(!isTa);
     const [selectedOptionId, setSelectedOptionId] = useState('');
     const [showExitModal, setShowExitModal] = useState(false);
     
@@ -26,19 +38,39 @@ export default function QuizView({ quiz: quizProp, onBack: onBackProp }) {
 
     useEffect(() => {
         if (!quizProp && paramQuizId) {
-            api.getQuizDetails ? api.getQuizDetails(paramQuizId).then(q => setFetchedQuiz(q)).catch(() => {}) : null;
+            api.getQuizDetails(paramQuizId)
+                .then(q => setFetchedQuiz(q))
+                .catch(err => console.error('Error fetching quiz details:', err));
         }
     }, [quizProp, paramQuizId]);
 
+    // TA read-only question fetching
     useEffect(() => {
-        if (quiz?.id) {
+        if (isTa && quiz?.id) {
+            setTaLoading(true);
+            api.getQuizQuestions(quiz.id)
+                .then(qs => {
+                    setTaQuestions(qs || []);
+                })
+                .catch(err => {
+                    console.error('Error fetching questions for TA preview:', err);
+                    if (window.showToast) window.showToast('Failed to load quiz questions', 'error');
+                })
+                .finally(() => setTaLoading(false));
+        }
+    }, [isTa, quiz?.id]);
+
+    // Student adaptive question loading
+    useEffect(() => {
+        if (!isTa && quiz?.id) {
             responsesRef.current = [];
             setResponseCount(0);
             loadNextQuestion();
         }
-    }, [quiz?.id]);
+    }, [isTa, quiz?.id]);
 
     async function loadNextQuestion(currentResponses) {
+        if (isTa) return;
         setLoading(true);
         setSelectedOptionId('');
         try {
@@ -53,13 +85,16 @@ export default function QuizView({ quiz: quizProp, onBack: onBackProp }) {
             }
         } catch (err) {
             console.error('Error loading next adaptive question:', err.message);
+            if (window.showToast) {
+                window.showToast(err.message || 'Error loading next question', 'error');
+            }
         } finally {
             setLoading(false);
         }
     }
 
     const handleNext = () => {
-        if (!selectedOptionId) return;
+        if (isTa || !selectedOptionId) return;
 
         // Build updated list and store in ref immediately (sync)
         const newResponses = [
@@ -74,6 +109,13 @@ export default function QuizView({ quiz: quizProp, onBack: onBackProp }) {
     };
 
     const finishQuiz = async (finalResponses) => {
+        if (isTa) {
+            if (window.showToast) {
+                window.showToast('TAs cannot submit quiz attempts.', 'error');
+            }
+            return;
+        }
+
         setSubmitting(true);
         try {
             if (!finalResponses || finalResponses.length === 0) {
@@ -92,7 +134,7 @@ export default function QuizView({ quiz: quizProp, onBack: onBackProp }) {
         } catch (err) {
             console.error('Quiz submit error:', err);
             if (window.showToast) {
-                window.showToast('Failed to submit quiz results. Please try again.', 'error');
+                window.showToast(err.message || 'Failed to submit quiz results. Please try again.', 'error');
             }
         } finally {
             setSubmitting(false);
@@ -100,6 +142,10 @@ export default function QuizView({ quiz: quizProp, onBack: onBackProp }) {
     };
 
     const handleExitEarly = () => {
+        if (isTa) {
+            onBack();
+            return;
+        }
         const answersSoFar = responsesRef.current;
         if (answersSoFar.length > 0) {
             setShowExitModal(true);
@@ -114,10 +160,170 @@ export default function QuizView({ quiz: quizProp, onBack: onBackProp }) {
     };
 
     // Safely parse options array from string or object
-    const options = question && question.options 
+    const currentQuestionOptions = question && question.options 
         ? (typeof question.options === 'string' ? JSON.parse(question.options) : question.options)
         : [];
 
+    // ==========================================
+    // TA READ-ONLY VIEW
+    // ==========================================
+    if (isTa) {
+        return (
+            <div className="max-w-4xl mx-auto space-y-6 animate-in fade-in duration-300">
+                {/* Header bar */}
+                <div className="flex items-center justify-between bg-[#ffffff] dark:bg-slate-900 border border-[#edebe3] dark:border-slate-800 p-4 rounded-2xl shadow-sm">
+                    <button
+                        onClick={onBack}
+                        className="btn-ghost !text-xs !py-2 !px-4 inline-flex items-center gap-2"
+                    >
+                        <ArrowLeft size={16} />
+                        <span>Back to Course</span>
+                    </button>
+                    <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-extrabold px-3 py-1 bg-[#f3f1ed] dark:bg-slate-800 text-[#00262b] dark:text-[#04c5e7] rounded-[94px] border border-[#04c5e7]/40 uppercase tracking-wider inline-flex items-center gap-1.5">
+                            <Eye size={12} />
+                            <span>TA View-Only Mode</span>
+                        </span>
+                    </div>
+                </div>
+
+                {/* TA Notice Badge Banner */}
+                <div className="bg-[#f3f1ed] dark:bg-slate-900/90 border border-[#e1ddd1] dark:border-slate-800 rounded-2xl p-5 flex items-start gap-4 shadow-sm">
+                    <div className="p-2.5 rounded-xl bg-[#00262b] text-[#04c5e7] shrink-0">
+                        <ShieldCheck size={20} />
+                    </div>
+                    <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                            <h3 className="text-sm font-extrabold text-[#00262b] dark:text-slate-100">
+                                View only — TAs cannot attempt quizzes
+                            </h3>
+                            <span className="text-[10px] font-bold uppercase tracking-wider bg-[#edebe3] dark:bg-slate-800 text-[#52716c] dark:text-slate-300 px-2 py-0.5 rounded-md border border-[#e1ddd1] dark:border-slate-700">
+                                Read Only
+                            </span>
+                        </div>
+                        <p className="text-xs text-[#52716c] dark:text-slate-400 leading-relaxed">
+                            As an approved Teaching Assistant, you have full visibility into the quiz structure and question bank to assist students. However, attempt creation and answer submissions are disabled to prevent conflict with student scoring metrics.
+                        </p>
+                    </div>
+                </div>
+
+                {/* Quiz Info Header */}
+                <div className="bg-[#ffffff] dark:bg-slate-900 border border-[#edebe3] dark:border-slate-800 rounded-2xl p-6 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                        <h2 className="text-xl font-extrabold text-[#00262b] dark:text-slate-100">
+                            {quiz.title}
+                        </h2>
+                        {quiz.topic_title && (
+                            <p className="text-xs text-[#52716c] dark:text-slate-400 mt-1 font-medium">
+                                Topic: {quiz.topic_title} {quiz.course_title ? `• Course: ${quiz.course_title}` : ''}
+                            </p>
+                        )}
+                    </div>
+                    <div className="flex items-center gap-4 text-xs font-semibold text-[#52716c] dark:text-slate-400">
+                        <div className="px-3 py-1.5 bg-[#f9f8f6] dark:bg-slate-800 rounded-xl border border-[#edebe3] dark:border-slate-700">
+                            Questions: <strong className="text-[#00262b] dark:text-slate-200">{taQuestions.length}</strong>
+                        </div>
+                        <div className="px-3 py-1.5 bg-[#f9f8f6] dark:bg-slate-800 rounded-xl border border-[#edebe3] dark:border-slate-700">
+                            Passing: <strong className="text-[#00262b] dark:text-slate-200">{quiz.passing_score || 50}%</strong>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Questions List */}
+                {taLoading ? (
+                    <div className="bg-[#ffffff] dark:bg-slate-900 border border-[#edebe3] dark:border-slate-800 rounded-2xl p-12 text-center shadow-sm">
+                        <div className="w-8 h-8 mx-auto border-3 border-[#00262b] border-t-transparent rounded-full animate-spin mb-4" />
+                        <p className="text-xs text-[#52716c] dark:text-slate-400 font-medium">Loading quiz questions for review...</p>
+                    </div>
+                ) : taQuestions.length === 0 ? (
+                    <div className="bg-[#ffffff] dark:bg-slate-900 border border-[#edebe3] dark:border-slate-800 rounded-2xl p-8 text-center text-[#52716c] dark:text-slate-400 text-sm shadow-sm">
+                        No questions have been configured for this quiz yet.
+                    </div>
+                ) : (
+                    <div className="space-y-4">
+                        {taQuestions.map((q, qIndex) => {
+                            const qOpts = typeof q.options === 'string' ? JSON.parse(q.options) : (q.options || []);
+                            return (
+                                <div 
+                                    key={q.id || qIndex} 
+                                    className="bg-[#ffffff] dark:bg-slate-900 border border-[#edebe3] dark:border-slate-800 rounded-2xl p-6 shadow-sm space-y-4"
+                                >
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <span className="w-6 h-6 rounded-full bg-[#f3f1ed] dark:bg-slate-800 text-[#00262b] dark:text-[#04c5e7] flex items-center justify-center text-xs font-bold border border-[#e1ddd1] dark:border-slate-700">
+                                                {qIndex + 1}
+                                            </span>
+                                            <span className="text-xs font-bold uppercase tracking-wider text-[#52716c] dark:text-slate-400">
+                                                Question {qIndex + 1}
+                                            </span>
+                                        </div>
+                                        <span className={`px-2.5 py-0.5 rounded-[94px] text-[10px] font-bold tracking-wider uppercase border ${
+                                            q.difficulty === 'EASY'
+                                                ? 'bg-[#f3f1ed] dark:bg-slate-800 text-[#00262b] dark:text-[#04c5e7] border-[#04c5e7]'
+                                                : q.difficulty === 'HARD'
+                                                    ? 'bg-[#f3f1ed] dark:bg-slate-800 text-[#d64000] dark:text-rose-400 border-[#d64000]/40'
+                                                    : 'bg-[#f3f1ed] dark:bg-slate-800 text-[#00262b] dark:text-slate-200 border-[#edebe3] dark:border-slate-700'
+                                        }`}>
+                                            {q.difficulty || 'MEDIUM'}
+                                        </span>
+                                    </div>
+
+                                    <h4 className="text-base font-bold text-[#00262b] dark:text-slate-100 leading-snug">
+                                        {q.content}
+                                    </h4>
+
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                                        {qOpts.map((opt) => {
+                                            const isKey = q.correct_option_id === opt.id;
+                                            return (
+                                                <div 
+                                                    key={opt.id}
+                                                    className={`p-3.5 rounded-xl border text-left flex items-center justify-between transition-all select-none ${
+                                                        isKey 
+                                                            ? 'bg-emerald-50/70 dark:bg-emerald-950/30 border-emerald-500/50 dark:border-emerald-500/50 text-[#00262b] dark:text-emerald-200' 
+                                                            : 'bg-[#f9f8f6] dark:bg-slate-800/40 border-[#edebe3] dark:border-slate-800 text-[#52716c] dark:text-slate-400'
+                                                    }`}
+                                                >
+                                                    <div className="flex items-center gap-3">
+                                                        <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold ${
+                                                            isKey 
+                                                                ? 'bg-emerald-600 text-white dark:bg-emerald-500 dark:text-slate-950' 
+                                                                : 'bg-[#edebe3] dark:bg-slate-700 text-[#52716c] dark:text-slate-300'
+                                                        }`}>
+                                                            {opt.id}
+                                                        </span>
+                                                        <span className="text-xs font-semibold">{opt.text}</span>
+                                                    </div>
+                                                    {isKey && (
+                                                        <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700 flex items-center gap-1">
+                                                            <Check size={10} /> Key
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+
+                <div className="flex justify-center pt-4 pb-8">
+                    <button
+                        onClick={onBack}
+                        className="btn-primary !px-8 !py-3 !text-xs"
+                    >
+                        Finished Review
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    // ==========================================
+    // STUDENT ATTEMPT & RESULTS VIEW
+    // ==========================================
     return (
         <div className="max-w-3xl mx-auto space-y-6 animate-in fade-in duration-300">
             <ConfirmModal
@@ -135,100 +341,252 @@ export default function QuizView({ quiz: quizProp, onBack: onBackProp }) {
             />
 
             {/* Header bar */}
-            <div className="flex items-center justify-between bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 p-4 rounded-2xl shadow-xs">
+            <div className="flex items-center justify-between bg-[#ffffff] dark:bg-slate-900 border border-[#edebe3] dark:border-slate-800 p-4 rounded-2xl shadow-sm">
                 <button
                     onClick={handleExitEarly}
-                    className="inline-flex items-center gap-2 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-750 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-semibold transition-colors"
+                    className="btn-ghost !text-xs !py-2 !px-4 inline-flex items-center gap-2"
                 >
                     <ArrowLeft size={16} />
                     <span>Exit Quiz</span>
                 </button>
-                <div className="flex items-center gap-3">
-                    <span className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-                        Question {responseCount + 1}
-                    </span>
-                </div>
+                {!quizFinished && (
+                    <div className="flex items-center gap-3">
+                        <span className="text-xs font-bold text-[#52716c] dark:text-slate-400 uppercase tracking-wider">
+                            Question {responseCount + 1}
+                        </span>
+                    </div>
+                )}
             </div>
 
             {/* Main Quiz Content */}
             {quizFinished && results ? (
-                <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-8 shadow-sm space-y-6 text-center">
-                    <div className={`mx-auto w-16 h-16 rounded-3xl flex items-center justify-center ${
-                        results.score >= 60 
-                            ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' 
-                            : 'bg-rose-50 dark:bg-rose-500/10 text-rose-600 dark:text-rose-400'
-                    }`}>
-                        {results.score >= 60 ? <CheckCircle size={32} /> : <AlertCircle size={32} />}
+                <div className="space-y-6">
+                    {/* Top Summary Metrics Card */}
+                    <div className="bg-[#ffffff] dark:bg-slate-900 border border-[#edebe3] dark:border-slate-800 rounded-2xl p-8 shadow-sm space-y-6 text-center">
+                        <div className={`mx-auto w-16 h-16 rounded-2xl flex items-center justify-center ${
+                            results.score >= 60 
+                                ? 'bg-[#00262b] dark:bg-[#04c5e7]/20 text-[#04c5e7]' 
+                                : 'bg-[#f3f1ed] dark:bg-rose-500/20 text-[#d64000] dark:text-rose-400'
+                        }`}>
+                            {results.score >= 60 ? <CheckCircle size={32} /> : <AlertCircle size={32} />}
+                        </div>
+
+                        <div className="space-y-2">
+                            <h2 className="text-2xl md:text-3xl font-extrabold text-[#00262b] dark:text-slate-100">
+                                {results.score >= 60 ? 'Great job! Quiz Passed' : 'Quiz Completed'}
+                            </h2>
+                            <p className="text-xs font-medium text-[#52716c] dark:text-slate-400">
+                                You completed the adaptive practice session. Here are your final metrics:
+                            </p>
+                        </div>
+
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-4 border-t border-[#edebe3] dark:border-slate-800">
+                            <div className="p-4 bg-[#f9f8f6] dark:bg-slate-850 border border-[#edebe3] dark:border-slate-800 rounded-2xl">
+                                <span className="block text-[10px] font-bold uppercase text-[#52716c] dark:text-slate-400 tracking-wider">Final Score</span>
+                                <span className="text-2xl font-extrabold text-[#00262b] dark:text-slate-100">{results.score}%</span>
+                            </div>
+                            <div className="p-4 bg-[#f9f8f6] dark:bg-slate-850 border border-[#edebe3] dark:border-slate-800 rounded-2xl">
+                                <span className="block text-[10px] font-bold uppercase text-[#52716c] dark:text-slate-400 tracking-wider">Average</span>
+                                <span className="text-2xl font-extrabold text-[#00262b] dark:text-slate-100">
+                                    {results.averageScore !== undefined ? results.averageScore : results.score}%
+                                </span>
+                            </div>
+                            <div className="p-4 bg-[#f9f8f6] dark:bg-slate-850 border border-[#edebe3] dark:border-slate-800 rounded-2xl">
+                                <span className="block text-[10px] font-bold uppercase text-[#52716c] dark:text-slate-400 tracking-wider">XP Earned</span>
+                                <span className="text-2xl font-extrabold text-[#00262b] dark:text-slate-100 flex items-center justify-center gap-1">
+                                    <Award size={20} className="text-[#d64000] dark:text-amber-400" />
+                                    +{results.xpGained}
+                                </span>
+                            </div>
+                            <div className="p-4 bg-[#f9f8f6] dark:bg-slate-850 border border-[#edebe3] dark:border-slate-800 rounded-2xl">
+                                <span className="block text-[10px] font-bold uppercase text-[#52716c] dark:text-slate-400 tracking-wider">Attempt</span>
+                                <span className="text-2xl font-extrabold text-[#00262b] dark:text-slate-100">#{results.attemptsCount || 1}</span>
+                            </div>
+                        </div>
+
+                        <div className="pt-2 flex gap-4 justify-center">
+                            <button
+                                onClick={onBack}
+                                className="btn-primary !px-8 !py-3 !text-sm"
+                            >
+                                Back to Topic
+                            </button>
+                        </div>
                     </div>
 
-                    <div className="space-y-2">
-                        <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
-                            {results.score >= 60 ? 'Great job! Quiz Passed' : 'Quiz Completed'}
-                        </h2>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">
-                            You completed the adaptive practice session. Here are your final metrics:
-                        </p>
-                    </div>
+                    {/* Per-Question Review List */}
+                    {results.questionReview && results.questionReview.length > 0 && (
+                        <div className="bg-[#ffffff] dark:bg-slate-900 border border-[#edebe3] dark:border-slate-800 rounded-2xl p-6 md:p-8 shadow-sm space-y-6 text-left">
+                            <div className="flex items-center justify-between pb-4 border-b border-[#edebe3] dark:border-slate-800">
+                                <div className="flex items-center gap-2.5">
+                                    <div className="p-2 rounded-xl bg-[#00262b] text-[#04c5e7]">
+                                        <ClipboardList size={18} />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-base font-extrabold text-[#00262b] dark:text-slate-100">
+                                            Per-Question Answer Breakdown
+                                        </h3>
+                                        <p className="text-xs text-[#52716c] dark:text-slate-400">
+                                            Review your selected answers against the correct answers
+                                        </p>
+                                    </div>
+                                </div>
+                                <span className="text-xs font-extrabold px-3 py-1.5 rounded-full bg-[#f3f1ed] dark:bg-slate-800 text-[#00262b] dark:text-[#04c5e7] border border-[#e1ddd1] dark:border-slate-700">
+                                    {results.correctCount} / {results.totalQuestions} Correct
+                                </span>
+                            </div>
 
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-4 border-t border-slate-100 dark:border-slate-800">
-                        <div className="p-4 bg-slate-50 dark:bg-slate-850 rounded-2xl">
-                            <span className="block text-[10px] font-bold uppercase text-slate-400 dark:text-slate-500 tracking-wider">Final Score</span>
-                            <span className="text-xl font-black text-indigo-600 dark:text-indigo-400">{results.score}%</span>
-                        </div>
-                        <div className="p-4 bg-slate-50 dark:bg-slate-850 rounded-2xl">
-                            <span className="block text-[10px] font-bold uppercase text-slate-400 dark:text-slate-500 tracking-wider">Accuracy</span>
-                            <span className="text-xl font-black text-slate-800 dark:text-slate-200">{results.correctAnswers}/{results.totalAnswered}</span>
-                        </div>
-                        <div className="p-4 bg-slate-50 dark:bg-slate-850 rounded-2xl">
-                            <span className="block text-[10px] font-bold uppercase text-slate-400 dark:text-slate-500 tracking-wider">XP Earned</span>
-                            <span className="text-xl font-black text-amber-500 flex items-center justify-center gap-1">
-                                <Award size={18} />
-                                +{results.xpGained}
-                            </span>
-                        </div>
-                        <div className="p-4 bg-slate-50 dark:bg-slate-850 rounded-2xl">
-                            <span className="block text-[10px] font-bold uppercase text-slate-400 dark:text-slate-500 tracking-wider">New Skill Score</span>
-                            <span className="text-xl font-black text-emerald-500">{results.newSkillScore}</span>
-                        </div>
-                    </div>
+                            <div className="space-y-6">
+                                {results.questionReview.map((item, idx) => {
+                                    const itemOptions = item.options 
+                                        ? (typeof item.options === 'string' ? JSON.parse(item.options) : item.options)
+                                        : [];
 
-                    <div className="pt-4 flex gap-4 justify-center">
-                        <button
-                            onClick={onBack}
-                            className="px-6 py-3 bg-indigo-600 hover:bg-indigo-550 text-white rounded-xl text-xs font-bold transition-all shadow-md"
-                        >
-                            Back to Topic
-                        </button>
-                    </div>
+                                    return (
+                                        <div 
+                                            key={item.questionId || idx}
+                                            className="p-5 rounded-2xl border border-[#edebe3] dark:border-slate-800 bg-[#f9f8f6]/50 dark:bg-slate-850/40 space-y-4"
+                                        >
+                                            {/* Question Header */}
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="w-6 h-6 rounded-full bg-[#ffffff] dark:bg-slate-800 text-[#00262b] dark:text-slate-200 flex items-center justify-center text-xs font-bold border border-[#edebe3] dark:border-slate-700">
+                                                        {idx + 1}
+                                                    </span>
+                                                    <span className="text-xs font-bold text-[#52716c] dark:text-slate-400 uppercase tracking-wider">
+                                                        Question {idx + 1}
+                                                    </span>
+                                                </div>
+
+                                                <div className="flex items-center gap-2">
+                                                    {item.difficulty && (
+                                                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-[#edebe3] dark:bg-slate-800 text-[#52716c] dark:text-slate-300 border border-[#e1ddd1] dark:border-slate-700">
+                                                            {item.difficulty}
+                                                        </span>
+                                                    )}
+                                                    {item.isCorrect ? (
+                                                        <span className="inline-flex items-center gap-1 text-[11px] font-extrabold uppercase px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                                                            <CheckCircle size={13} />
+                                                            <span>Correct</span>
+                                                        </span>
+                                                    ) : (
+                                                        <span className="inline-flex items-center gap-1 text-[11px] font-extrabold uppercase px-2.5 py-1 rounded-full bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                                                            <X size={13} />
+                                                            <span>Incorrect</span>
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* Question Content */}
+                                            <p className="text-sm md:text-base font-bold text-[#00262b] dark:text-slate-100 leading-snug">
+                                                {item.content}
+                                            </p>
+
+                                            {/* Options List */}
+                                            <div className="space-y-2.5 pt-1">
+                                                {itemOptions.map((opt) => {
+                                                    const isSelected = item.selectedOptionId === opt.id;
+                                                    const isCorrectKey = item.correctOptionId === opt.id;
+
+                                                    // Determine visual style based on correctness & selection
+                                                    let cardStyle = 'bg-[#ffffff] dark:bg-slate-900 border-[#edebe3] dark:border-slate-800 text-[#52716c] dark:text-slate-400';
+                                                    let badgeElement = null;
+
+                                                    if (isSelected && isCorrectKey) {
+                                                        // Student picked correctly!
+                                                        cardStyle = 'bg-emerald-50/80 dark:bg-emerald-950/40 border-emerald-500 text-[#00262b] dark:text-emerald-200 shadow-xs';
+                                                        badgeElement = (
+                                                            <span className="inline-flex items-center gap-1 text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
+                                                                <Check size={11} /> Correct — Your Pick
+                                                            </span>
+                                                        );
+                                                    } else if (isSelected && !isCorrectKey) {
+                                                        // Student picked wrongly!
+                                                        cardStyle = 'bg-rose-50/80 dark:bg-rose-950/40 border-rose-500 text-[#00262b] dark:text-rose-200 shadow-xs';
+                                                        badgeElement = (
+                                                            <span className="inline-flex items-center gap-1 text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-full bg-rose-100 text-rose-800 dark:bg-rose-900/60 dark:text-rose-300 border border-rose-300 dark:border-rose-700">
+                                                                <X size={11} /> Your Choice (Incorrect)
+                                                            </span>
+                                                        );
+                                                    } else if (!isSelected && isCorrectKey) {
+                                                        // Correct answer that student missed
+                                                        cardStyle = 'bg-emerald-50/40 dark:bg-emerald-950/20 border-emerald-400/80 dark:border-emerald-500/70 text-[#00262b] dark:text-emerald-200';
+                                                        badgeElement = (
+                                                            <span className="inline-flex items-center gap-1 text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-full bg-emerald-100/90 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
+                                                                <Check size={11} /> Correct Answer
+                                                            </span>
+                                                        );
+                                                    }
+
+                                                    return (
+                                                        <div 
+                                                            key={opt.id}
+                                                            className={`p-3.5 rounded-xl border text-left flex items-center justify-between transition-all select-none ${cardStyle}`}
+                                                        >
+                                                            <div className="flex items-center gap-3">
+                                                                <span className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 ${
+                                                                    isCorrectKey
+                                                                        ? 'bg-emerald-600 text-white dark:bg-emerald-500 dark:text-slate-950'
+                                                                        : isSelected
+                                                                            ? 'bg-rose-600 text-white dark:bg-rose-500 dark:text-slate-950'
+                                                                            : 'bg-[#edebe3] dark:bg-slate-800 text-[#52716c] dark:text-slate-300'
+                                                                }`}>
+                                                                    {opt.id}
+                                                                </span>
+                                                                <span className="text-xs md:text-sm font-semibold">
+                                                                    {opt.text}
+                                                                </span>
+                                                            </div>
+                                                            {badgeElement}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            <div className="pt-4 border-t border-[#edebe3] dark:border-slate-800 flex justify-center">
+                                <button
+                                    onClick={onBack}
+                                    className="btn-primary !px-8 !py-3 !text-sm"
+                                >
+                                    Back to Topic
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             ) : loading ? (
-                <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-12 shadow-sm text-center">
-                    <div className="w-8 h-8 mx-auto border-2 border-indigo-600 border-t-transparent rounded-full animate-spin mb-4" />
-                    <p className="text-xs text-slate-400 dark:text-slate-500">Loading next question...</p>
+                <div className="bg-[#ffffff] dark:bg-slate-900 border border-[#edebe3] dark:border-slate-800 rounded-2xl p-12 shadow-sm text-center">
+                    <div className="w-8 h-8 mx-auto border-3 border-[#00262b] border-t-transparent rounded-full animate-spin mb-4" />
+                    <p className="text-xs text-[#52716c] dark:text-slate-400 font-medium">Loading next question...</p>
                 </div>
             ) : question ? (
-                <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 md:p-8 shadow-sm space-y-6">
+                <div className="bg-[#ffffff] dark:bg-slate-900 border border-[#edebe3] dark:border-slate-800 rounded-2xl p-6 md:p-8 shadow-sm space-y-6">
                     {/* Question Meta */}
                     <div className="flex items-center justify-between">
-                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wider uppercase ${
+                        <span className={`px-3 py-1 rounded-[94px] text-[10px] font-bold tracking-wider uppercase border ${
                             question.difficulty === 'EASY'
-                                ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400'
+                                ? 'bg-[#f3f1ed] dark:bg-slate-800 text-[#00262b] dark:text-[#04c5e7] border-[#04c5e7]'
                                 : question.difficulty === 'HARD'
-                                    ? 'bg-rose-50 text-rose-600 dark:bg-rose-500/10 dark:text-rose-400'
-                                    : 'bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400'
+                                    ? 'bg-[#f3f1ed] dark:bg-slate-800 text-[#d64000] dark:text-rose-400 border-[#d64000]/40'
+                                    : 'bg-[#f3f1ed] dark:bg-slate-800 text-[#00262b] dark:text-slate-200 border-[#edebe3] dark:border-slate-700'
                         }`}>
                             {question.difficulty} Difficulty
                         </span>
                     </div>
 
                     {/* Question Title */}
-                    <h3 className="text-lg md:text-xl font-bold text-slate-900 dark:text-white leading-relaxed">
+                    <h3 className="text-lg md:text-xl font-extrabold text-[#00262b] dark:text-slate-100 leading-relaxed">
                         {question.content}
                     </h3>
 
                     {/* Options list */}
                     <div className="space-y-3 pt-2">
-                        {options.map((opt) => {
+                        {currentQuestionOptions.map((opt) => {
                             const isSelected = selectedOptionId === opt.id;
                             return (
                                 <button
@@ -236,32 +594,32 @@ export default function QuizView({ quiz: quizProp, onBack: onBackProp }) {
                                     onClick={() => setSelectedOptionId(opt.id)}
                                     className={`w-full p-4 rounded-2xl border text-left flex items-center justify-between transition-all duration-200 ${
                                         isSelected
-                                            ? 'bg-indigo-50/80 dark:bg-indigo-950/40 border-indigo-500 text-indigo-950 dark:text-indigo-100 shadow-xs'
-                                            : 'bg-slate-50/50 dark:bg-slate-950/40 border-slate-200/60 dark:border-slate-800/60 text-slate-700 dark:text-slate-300 hover:border-indigo-300 dark:hover:border-indigo-800'
+                                            ? 'bg-[#f3f1ed] dark:bg-slate-800 border-[#00262b] dark:border-[#04c5e7] text-[#00262b] dark:text-slate-100 shadow-sm'
+                                            : 'bg-[#ffffff] dark:bg-slate-900 border-[#edebe3] dark:border-slate-800 text-[#00262b] dark:text-slate-200 hover:border-[#04c5e7]'
                                     }`}
                                 >
                                     <div className="flex items-center gap-3">
-                                        <span className={`w-7 h-7 rounded-xl flex items-center justify-center text-xs font-bold ${
+                                        <span className={`w-8 h-8 rounded-2xl flex items-center justify-center text-xs font-bold ${
                                             isSelected
-                                                ? 'bg-indigo-600 text-white'
-                                                : 'bg-slate-200/60 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                                                ? 'bg-[#00262b] text-[#04c5e7]'
+                                                : 'bg-[#f9f8f6] dark:bg-slate-800 text-[#00262b] dark:text-slate-200 border border-[#edebe3] dark:border-slate-700'
                                         }`}>
                                             {opt.id}
                                         </span>
-                                        <span className="text-xs md:text-sm font-medium">{opt.text}</span>
+                                        <span className="text-xs md:text-sm font-semibold">{opt.text}</span>
                                     </div>
-                                    {isSelected && <Check size={18} className="text-indigo-600 dark:text-indigo-400" />}
+                                    {isSelected && <Check size={18} className="text-[#00262b] dark:text-[#04c5e7]" />}
                                 </button>
                             );
                         })}
                     </div>
 
                     {/* Actions */}
-                    <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex justify-end">
+                    <div className="pt-4 border-t border-[#edebe3] dark:border-slate-800 flex justify-end">
                         <button
                             onClick={handleNext}
                             disabled={!selectedOptionId || submitting}
-                            className="px-6 py-3 bg-indigo-600 hover:bg-indigo-550 disabled:bg-slate-200 dark:disabled:bg-slate-800 disabled:text-slate-400 dark:disabled:text-slate-600 text-white rounded-xl text-xs font-bold transition-all shadow-md"
+                            className="btn-primary !px-6 !py-3 !text-xs disabled:opacity-40"
                         >
                             {submitting ? 'Submitting...' : 'Next Question →'}
                         </button>
