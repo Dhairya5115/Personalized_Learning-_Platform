@@ -19,9 +19,16 @@ async function initListener() {
 
     try {
         const isProduction = process.env.NODE_ENV === 'production';
+        const isRemoteDb = process.env.DATABASE_URL && 
+            !process.env.DATABASE_URL.includes('localhost') && 
+            !process.env.DATABASE_URL.includes('127.0.0.1');
+
+        let dbUrl = process.env.DATABASE_URL || '';
+        dbUrl = dbUrl.replace(/[?&]channel_binding=[^&]+/g, '');
+
         listenClient = new Client({
-            connectionString: process.env.DATABASE_URL,
-            ssl: isProduction ? { rejectUnauthorized: false } : false
+            connectionString: dbUrl,
+            ssl: (isProduction || isRemoteDb) ? { rejectUnauthorized: false } : false
         });
 
         listenClient.on('notification', (msg) => {
