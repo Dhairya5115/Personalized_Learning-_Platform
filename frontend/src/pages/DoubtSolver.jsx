@@ -725,7 +725,7 @@ export default function DoubtSolver({ context, onClearContext }) {
                                     setRequestModalOpen(false);
                                     setModalError('');
                                 }}
-                                className="text-[#52716c] hover:text-[#00262b] p-1 rounded-full hover:bg-[#f9f8f6]"
+                                className="text-[#52716c] dark:text-[var(--color-text-secondary)] hover:text-[#00262b] dark:hover:text-[var(--color-text)] p-1 rounded-full hover:bg-[var(--row-hover-bg)] transition-colors"
                             >
                                 ✕
                             </button>

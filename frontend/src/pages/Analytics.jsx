@@ -371,11 +371,11 @@ export default function Analytics() {
                                         const pass = attempt.score >= attempt.passing_score;
 
                                         return (
-                                            <tr key={attempt.id} className="hover:bg-[#f9f8f6] transition-colors">
-                                                <td className="px-6 py-4 font-bold text-[#00262b]">
+                                            <tr key={attempt.id} className="table-row-hover hover:bg-[var(--row-hover-bg)] transition-colors">
+                                                <td className="px-6 py-4 font-bold text-[#00262b] dark:text-[var(--color-text)]">
                                                     {attempt.quiz_title}
                                                 </td>
-                                                <td className="px-6 py-4 text-[#52716c]">
+                                                <td className="px-6 py-4 text-[#52716c] dark:text-[var(--color-text-secondary)]">
                                                     {new Date(attempt.completed_at).toLocaleDateString(undefined, {
                                                         month: 'short',
                                                         day: 'numeric',
@@ -383,23 +383,23 @@ export default function Analytics() {
                                                     })}
                                                 </td>
                                                 <td className="px-6 py-4">
-                                                    <span className="inline-flex items-center gap-1 text-[#00262b] font-bold">
+                                                    <span className="inline-flex items-center gap-1 text-[#00262b] dark:text-[var(--color-text)] font-bold">
                                                         ✓ {correct}
                                                     </span>
                                                 </td>
                                                 <td className="px-6 py-4">
-                                                    <span className="inline-flex items-center gap-1 text-[#d64000] font-bold">
+                                                    <span className="inline-flex items-center gap-1 text-[#d64000] dark:text-[#ff7043] font-bold">
                                                         ✗ {incorrect}
                                                     </span>
                                                 </td>
-                                                <td className="px-6 py-4 font-extrabold text-[#00262b]">
+                                                <td className="px-6 py-4 font-extrabold text-[#00262b] dark:text-[var(--color-text)]">
                                                     {attempt.score}%
                                                 </td>
                                                 <td className="px-6 py-4 text-right">
                                                     <span className={`inline-block text-[10px] font-bold px-2.5 py-0.5 rounded-[94px] uppercase tracking-wider border ${
                                                         pass 
-                                                            ? 'bg-[#f3f1ed] text-[#00262b] border-[#04c5e7]' 
-                                                            : 'bg-[#f3f1ed] text-[#d64000] border-[#d64000]/40'
+                                                            ? 'bg-[#f3f1ed] dark:bg-[#004d57] text-[#00262b] dark:text-[#f9f8f6] border-[#04c5e7]' 
+                                                            : 'bg-[#f3f1ed] dark:bg-[#004d57] text-[#d64000] dark:text-[#ff7043] border-[#d64000]/40 dark:border-[#ff5722]/50'
                                                     }`}>
                                                         {pass ? 'Pass' : 'Fail'}
                                                     </span>

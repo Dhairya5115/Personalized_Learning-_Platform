@@ -8,6 +8,7 @@ router.get('/', authenticateToken, courseController.getAllCourses);
 router.get('/enrolled', authenticateToken, requireRole(['STUDENT']), courseController.getEnrolledCourses);
 router.get('/:id', authenticateToken, courseController.getCourseById);
 router.get('/:courseId/topics', authenticateToken, courseController.getTopicsByCourse);
+router.get('/:courseId/events', authenticateToken, courseController.streamCourseEvents);
 
 // Teacher/Admin actions
 router.post('/', authenticateToken, requireRole(['TEACHER', 'ADMIN']), courseController.createCourse);

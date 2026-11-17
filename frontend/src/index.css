@@ -21,6 +21,15 @@
   --radius-card: 12px;
   --radius-input: 12px;
   --radius-button: 94px;
+
+  /* Dedicated row, accordion, and surface hover tokens */
+  --row-hover-bg: #f9f8f6;
+  --row-hover-text: #00262b;
+  --row-hover-text-secondary: #52716c;
+  --accordion-open-bg: #f9f8f6;
+  --accordion-open-text: #00262b;
+  --surface-hover-bg: #f9f8f6;
+  --surface-hover-text: #00262b;
 }
 
 .dark, [data-theme="dark"] {
@@ -40,6 +49,15 @@
   --color-border-strong: #00606c;
   --shadow-card: rgba(0, 0, 0, 0.3) 0px 1px 3px 0px, rgba(0, 0, 0, 0.2) 0px 1px 2px -1px;
   --shadow-hover: rgba(0, 0, 0, 0.4) 0px 4px 12px 0px, rgba(0, 0, 0, 0.3) 0px 2px 4px -1px;
+
+  /* Subtle dark teal hover surface with light text in dark mode */
+  --row-hover-bg: #00454e;
+  --row-hover-text: #f9f8f6;
+  --row-hover-text-secondary: #a5b6b1;
+  --accordion-open-bg: #00454e;
+  --accordion-open-text: #f9f8f6;
+  --surface-hover-bg: #00454e;
+  --surface-hover-text: #f9f8f6;
 }
 
 @tailwind base;
@@ -311,6 +329,116 @@
 .dark .border-\[\#f3f1ed\],
 .dark .border-\[\#e1ddd1\] {
   border-color: var(--color-border) !important;
+}
+
+/* Universal Dark Mode Hover & Surface Adapters */
+.dark .hover\:bg-\[\#f9f8f6\]:hover,
+.dark .hover\:bg-\[\#f3f1ed\]:hover,
+.dark .hover\:bg-slate-50:hover,
+.dark .hover\:bg-slate-100:hover,
+.dark .hover\:bg-gray-50:hover,
+.dark .hover\:bg-gray-100:hover {
+  background-color: var(--row-hover-bg) !important;
+  color: var(--row-hover-text) !important;
+}
+
+/* Table Row Hover Specific Rules */
+.table-row-hover {
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.table-row-hover:hover {
+  background-color: var(--row-hover-bg) !important;
+  color: var(--row-hover-text) !important;
+}
+
+.dark tbody tr.hover\:bg-\[\#f9f8f6\]:hover,
+.dark tbody tr:hover,
+.dark tr.table-row-hover:hover {
+  background-color: var(--row-hover-bg) !important;
+}
+
+.dark tbody tr:hover td {
+  background-color: transparent !important;
+}
+
+/* Ensure cell content inside dark hovered rows remains readable */
+.dark tbody tr:hover .text-\[\#00262b\],
+.dark tbody tr:hover td.text-\[\#00262b\] {
+  color: var(--row-hover-text) !important;
+}
+
+.dark tbody tr:hover .text-\[\#52716c\],
+.dark tbody tr:hover td.text-\[\#52716c\] {
+  color: var(--row-hover-text-secondary) !important;
+}
+
+/* Correct / Incorrect count indicators on hover in dark mode */
+.dark tbody tr:hover span.text-\[\#00262b\] {
+  color: var(--row-hover-text) !important;
+}
+
+.dark tbody tr:hover span.text-\[\#d64000\] {
+  color: var(--color-secondary) !important;
+}
+
+/* Status pills PASS and FAIL contrast protection */
+.dark tbody tr .bg-\[\#f3f1ed\],
+.dark tbody tr:hover .bg-\[\#f3f1ed\],
+.dark .status-pill-pass {
+  background-color: var(--color-bg-neutral) !important;
+  color: var(--color-text) !important;
+}
+
+.dark tbody tr .border-\[\#04c5e7\],
+.dark tbody tr:hover .border-\[\#04c5e7\] {
+  border-color: var(--color-primary) !important;
+}
+
+.dark tbody tr .border-\[\#d64000\]\/40,
+.dark tbody tr:hover .border-\[\#d64000\]\/40,
+.dark tbody tr .border-\[\#d64000\]\/30,
+.dark tbody tr:hover .border-\[\#d64000\]\/30 {
+  background-color: var(--color-bg-neutral) !important;
+  color: var(--color-secondary) !important;
+  border-color: rgba(255, 87, 34, 0.4) !important;
+}
+
+/* Accordion & Card Header Theme Adapters */
+.accordion-header {
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.accordion-header:hover {
+  background-color: var(--row-hover-bg) !important;
+}
+.dark .accordion-header:hover,
+.dark .accordion-header[aria-expanded="true"],
+.dark .accordion-header.is-expanded {
+  background-color: var(--accordion-open-bg) !important;
+}
+
+/* If a component deliberately keeps a light surface in dark mode, force dark text on EVERY child */
+.light-surface,
+.force-light-surface,
+[data-theme="light-forced"] {
+  background-color: #ffffff !important;
+  color: #00262b !important;
+}
+.light-surface *,
+.force-light-surface *,
+[data-theme="light-forced"] * {
+  color: #00262b !important;
+  border-color: #e1ddd1 !important;
+}
+.light-surface p,
+.light-surface span,
+.light-surface .text-secondary,
+.force-light-surface p,
+.force-light-surface span,
+.force-light-surface .text-secondary,
+[data-theme="light-forced"] p,
+[data-theme="light-forced"] span,
+[data-theme="light-forced"] .text-secondary {
+  color: #52716c !important;
 }
 
 /* Custom Scrollbar */

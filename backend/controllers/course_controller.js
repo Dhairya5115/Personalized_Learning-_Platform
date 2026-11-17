@@ -2,6 +2,7 @@ const db = require('../config/db');
 const fs = require('fs');
 const path = require('path');
 const { recalculateProgress } = require('../engines/progress_engine');
+const courseEventsService = require('../services/course_events_service');
 
 /**
  * Get all courses
@@ -115,35 +116,85 @@ async function getTopicsByCourse(req, res) {
 
 /**
  * Create a new topic inside a course (Teacher or Admin)
+ * With Insert-and-Shift contiguous priority ordering in one transaction
  */
 async function createTopic(req, res) {
     const { courseId } = req.params;
-    const { title, description, sequenceOrder } = req.body;
+    const { title, description } = req.body;
+    const rawPriority = req.body.priority !== undefined ? req.body.priority : req.body.sequenceOrder;
 
-    if (!title || sequenceOrder === undefined) {
-        return res.status(400).json({ error: 'Topic title and sequenceOrder are required' });
+    if (!title || typeof title !== 'string' || !title.trim()) {
+        return res.status(400).json({ error: 'Topic title is required' });
     }
 
+    if (rawPriority === undefined || rawPriority === null || rawPriority === '') {
+        return res.status(400).json({ error: 'Priority Number is required' });
+    }
+
+    const parsedPriority = Number(rawPriority);
+    if (!Number.isInteger(parsedPriority) || parsedPriority < 1) {
+        return res.status(400).json({ error: 'Priority Number must be a positive integer greater than or equal to 1' });
+    }
+
+    const client = await db.pool.connect();
     try {
-        // Validate course exists and teacher owns it
-        const courseCheck = await db.query('SELECT teacher_id FROM courses WHERE id = $1', [courseId]);
+        await client.query('BEGIN');
+
+        // Lock course row for update to prevent concurrent creation races
+        const courseCheck = await client.query('SELECT teacher_id FROM courses WHERE id = $1 FOR UPDATE', [courseId]);
         if (courseCheck.rows.length === 0) {
+            await client.query('ROLLBACK');
             return res.status(404).json({ error: 'Course not found' });
         }
         if (courseCheck.rows[0].teacher_id !== req.user.id && req.user.role !== 'ADMIN') {
+            await client.query('ROLLBACK');
             return res.status(403).json({ error: 'You are not authorized to add topics to this course' });
         }
 
-        const queryText = `
-            INSERT INTO topics (course_id, title, description, sequence_order)
-            VALUES ($1, $2, $3, $4)
-            RETURNING *
-        `;
-        const result = await db.query(queryText, [courseId, title, description, sequenceOrder]);
-        return res.status(201).json({ success: true, topic: result.rows[0] });
+        // Advisory transaction lock keyed by courseId
+        await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [courseId]);
+
+        // Count existing topics
+        const countRes = await client.query('SELECT COUNT(*) AS count FROM topics WHERE course_id = $1', [courseId]);
+        const currentCount = parseInt(countRes.rows[0].count, 10) || 0;
+
+        // Clamp priority: if N > (count + 1), store count + 1 so there are never gaps
+        const finalPriority = Math.min(parsedPriority, currentCount + 1);
+
+        // If a topic already has this priority or greater, shift them down by 1 (+1 to sequence_order)
+        await client.query(
+            'UPDATE topics SET sequence_order = sequence_order + 1 WHERE course_id = $1 AND sequence_order >= $2',
+            [courseId, finalPriority]
+        );
+
+        // Insert new topic with finalPriority
+        const insertRes = await client.query(
+            `INSERT INTO topics (course_id, title, description, sequence_order)
+             VALUES ($1, $2, $3, $4)
+             RETURNING *`,
+            [courseId, title.trim(), description || '', finalPriority]
+        );
+
+        const newTopic = insertRes.rows[0];
+
+        // Notify via Postgres LISTEN/NOTIFY
+        await client.query(
+            `SELECT pg_notify('tailorlearn_course_events', $1)`,
+            [JSON.stringify({ type: 'topics_changed', courseId })]
+        );
+
+        await client.query('COMMIT');
+
+        // Also emit locally for active SSE streams on this instance
+        courseEventsService.emitLocal(courseId, { type: 'topics_changed', courseId });
+
+        return res.status(201).json({ success: true, topic: newTopic });
     } catch (err) {
+        await client.query('ROLLBACK');
         console.error('Create topic error:', err.message);
         return res.status(500).json({ error: 'Internal server error creating topic' });
+    } finally {
+        client.release();
     }
 }
 
@@ -621,34 +672,159 @@ async function deleteCourse(req, res) {
 
 /**
  * Delete a topic (Teacher of the course, or Admin)
+ * Closes the gap so priorities stay contiguous 1..N
  */
 async function deleteTopic(req, res) {
     const { id } = req.params;
     const userId = req.user.id;
     const userRole = req.user.role;
 
+    const client = await db.pool.connect();
     try {
-        const topicResult = await db.query(`
-            SELECT t.*, c.teacher_id 
+        await client.query('BEGIN');
+
+        const topicResult = await client.query(`
+            SELECT t.id, t.course_id, t.sequence_order, c.teacher_id 
             FROM topics t
             JOIN courses c ON t.course_id = c.id
             WHERE t.id = $1
+            FOR UPDATE
         `, [id]);
 
         if (topicResult.rows.length === 0) {
+            await client.query('ROLLBACK');
             return res.status(404).json({ error: 'Topic not found' });
         }
 
         const topic = topicResult.rows[0];
         if (topic.teacher_id !== userId && userRole !== 'ADMIN') {
+            await client.query('ROLLBACK');
             return res.status(403).json({ error: 'You are not authorized to delete this topic' });
         }
 
-        await db.query('DELETE FROM topics WHERE id = $1', [id]);
+        const courseId = topic.course_id;
+        const deletedPriority = topic.sequence_order;
+
+        // Advisory transaction lock keyed by courseId
+        await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [courseId]);
+
+        // Delete the topic
+        await client.query('DELETE FROM topics WHERE id = $1', [id]);
+
+        // Close gap: decrement priority of all topics after the deleted one
+        await client.query(
+            'UPDATE topics SET sequence_order = sequence_order - 1 WHERE course_id = $1 AND sequence_order > $2',
+            [courseId, deletedPriority]
+        );
+
+        // Notify via Postgres LISTEN/NOTIFY
+        await client.query(
+            `SELECT pg_notify('tailorlearn_course_events', $1)`,
+            [JSON.stringify({ type: 'topics_changed', courseId })]
+        );
+
+        await client.query('COMMIT');
+
+        // Also emit locally for active SSE streams on this instance
+        courseEventsService.emitLocal(courseId, { type: 'topics_changed', courseId });
+
         return res.json({ success: true, message: 'Topic deleted successfully' });
     } catch (err) {
+        await client.query('ROLLBACK');
         console.error('Delete topic error:', err.message);
         return res.status(500).json({ error: 'Internal server error deleting topic' });
+    } finally {
+        client.release();
+    }
+}
+
+/**
+ * Server-Sent Events stream for course real-time updates (topics changed, etc.)
+ * Scoped by course ID, authenticated via Bearer token in headers
+ * Authorized for: owning teacher, enrolled students, course preview students, approved non-removed TAs.
+ */
+async function streamCourseEvents(req, res) {
+    const { courseId } = req.params;
+    const user = req.user;
+
+    try {
+        // 1. Verify course existence
+        const courseRes = await db.query('SELECT id, teacher_id FROM courses WHERE id = $1', [courseId]);
+        if (courseRes.rows.length === 0) {
+            return res.status(404).json({ error: 'Course not found' });
+        }
+        const course = courseRes.rows[0];
+
+        // 2. Strict Authorization checks
+        if (user.role === 'ADMIN') {
+            // Admin allowed
+        } else if (user.role === 'TEACHER') {
+            if (course.teacher_id !== user.id) {
+                return res.status(403).json({ error: 'Only the course owning teacher can subscribe to this course stream' });
+            }
+        } else if (user.role === 'TA') {
+            // Check for explicit rejection/removal in ta_applications
+            const taAppCheck = await db.query(
+                `SELECT status FROM ta_applications 
+                 WHERE ta_id = $1 AND course_id = $2 
+                 ORDER BY created_at DESC LIMIT 1`,
+                [user.id, courseId]
+            );
+            if (taAppCheck.rows.length > 0 && (taAppCheck.rows[0].status === 'REMOVED' || taAppCheck.rows[0].status === 'REJECTED')) {
+                return res.status(403).json({ error: 'Access denied: TA status has been removed or rejected' });
+            }
+
+            // Must currently be assigned in course_tas
+            const taAssignCheck = await db.query(
+                'SELECT id FROM course_tas WHERE ta_id = $1 AND course_id = $2',
+                [user.id, courseId]
+            );
+            if (taAssignCheck.rows.length === 0) {
+                return res.status(403).json({ error: 'Access denied: You are not an approved TA for this course' });
+            }
+        } else if (user.role === 'STUDENT') {
+            // Enrolled students and students viewing course preview are authorized
+        } else {
+            return res.status(403).json({ error: 'Unauthorized role for course stream' });
+        }
+
+        // 3. Setup SSE headers
+        res.writeHead(200, {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache, no-transform',
+            'Connection': 'keep-alive',
+            'X-Accel-Buffering': 'no'
+        });
+        if (res.flushHeaders) res.flushHeaders();
+
+        // 4. Initial connection confirmation event
+        res.write(`event: connected\ndata: ${JSON.stringify({ status: 'connected', courseId })}\n\n`);
+
+        // 5. Heartbeat comments every ~25 seconds (: heartbeat\n\n)
+        const heartbeatTimer = setInterval(() => {
+            try {
+                res.write(': heartbeat\n\n');
+            } catch (_) {}
+        }, 25000);
+
+        // 6. Subscribe to course events via courseEventsService
+        const unsubscribe = courseEventsService.subscribe(courseId, (payload) => {
+            try {
+                res.write(`event: message\ndata: ${JSON.stringify(payload)}\n\n`);
+            } catch (_) {}
+        });
+
+        // 7. Clean up stream on client disconnect
+        req.on('close', () => {
+            clearInterval(heartbeatTimer);
+            unsubscribe();
+        });
+    } catch (err) {
+        console.error('Course events stream error:', err.message);
+        if (!res.headersSent) {
+            return res.status(500).json({ error: 'Failed to establish event stream' });
+        }
+        res.end();
     }
 }
 
@@ -667,5 +843,6 @@ module.exports = {
     uploadLocalFile,
     getTeacherStudentProgress,
     deleteCourse,
-    deleteTopic
+    deleteTopic,
+    streamCourseEvents
 };

@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:5000/api');
 
 // Mutex promise to handle concurrent 401s during silent refresh (per-tab)
 let isRefreshing = false;
@@ -173,9 +173,9 @@ const api = {
         body: { title, description, price }
     }),
     getTopics: (courseId) => apiCall(`/courses/${courseId}/topics`),
-    createTopic: (courseId, title, description, sequenceOrder) => apiCall(`/courses/${courseId}/topics`, {
+    createTopic: (courseId, title, description, priorityNumber) => apiCall(`/courses/${courseId}/topics`, {
         method: 'POST',
-        body: { title, description, sequenceOrder }
+        body: { title, description, priority: priorityNumber, sequenceOrder: priorityNumber }
     }),
     getMaterials: (topicId) => apiCall(`/courses/topics/${topicId}/materials`),
     createMaterial: (topicId, title, type, fileUrl, isPremium, price) => apiCall(`/courses/topics/${topicId}/materials`, {

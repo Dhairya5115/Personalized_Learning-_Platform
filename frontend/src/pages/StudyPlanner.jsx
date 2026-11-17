@@ -192,17 +192,17 @@ export default function StudyPlanner() {
                                                 day.allocation.map((session, sIdx) => (
                                                     <div 
                                                         key={sIdx} 
-                                                        className="bg-[#f9f8f6] hover:bg-[#f3f1ed] border border-[#edebe3] rounded-xl p-3 text-left transition-colors flex flex-col justify-between"
+                                                        className="bg-[#f9f8f6] dark:bg-[var(--color-bg-subtle)] hover:bg-[var(--row-hover-bg)] border border-[#edebe3] dark:border-[var(--color-border)] rounded-xl p-3 text-left transition-colors flex flex-col justify-between"
                                                     >
                                                         <div>
-                                                            <p className="font-extrabold text-xs text-[#00262b] line-clamp-2 leading-relaxed">
+                                                            <p className="font-extrabold text-xs text-[#00262b] dark:text-[var(--color-text)] line-clamp-2 leading-relaxed">
                                                                 {session.topicTitle}
                                                             </p>
-                                                            <span className="inline-block bg-[#ffffff] border border-[#edebe3] text-[#00262b] text-[10px] font-bold px-2 py-0.5 rounded-[94px] mt-2">
+                                                            <span className="inline-block bg-[#ffffff] dark:bg-[var(--color-bg-card)] border border-[#edebe3] dark:border-[var(--color-border)] text-[#00262b] dark:text-[var(--color-text)] text-[10px] font-bold px-2 py-0.5 rounded-[94px] mt-2">
                                                                 {session.focusArea}
                                                             </span>
                                                         </div>
-                                                        <div className="mt-3 flex items-center gap-1 text-[10px] text-[#52716c] font-semibold border-t border-[#edebe3] pt-2">
+                                                        <div className="mt-3 flex items-center gap-1 text-[10px] text-[#52716c] dark:text-[var(--color-text-secondary)] font-semibold border-t border-[#edebe3] dark:border-[var(--color-border)] pt-2">
                                                             <Clock size={12} />
                                                             <span>{session.hours} hrs</span>
                                                         </div>

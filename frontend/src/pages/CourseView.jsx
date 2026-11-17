@@ -2,19 +2,41 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
+import { subscribeToCourseEvents } from '../services/courseEvents';
 import { 
     ArrowLeft, BookOpen, Plus, ClipboardList, Play, FileText, 
     Trash2, Sparkles, CheckCircle2, ChevronDown, ChevronUp, AlertCircle, HelpCircle,
     Lock, Unlock, CreditCard, Bookmark, Eye
 } from 'lucide-react';
 
-function TopicNode({ topic, index, isStudent, isEnrolled = true, onSelectQuiz, onSelectMaterial, role, onReloadTopics, onAskTutor }) {
+function TopicNode({ 
+    topic, 
+    index, 
+    isStudent, 
+    isEnrolled = true, 
+    onSelectQuiz, 
+    onSelectMaterial, 
+    role, 
+    onReloadTopics, 
+    onAskTutor,
+    isExpanded: propIsExpanded,
+    onToggleExpand
+}) {
     const { user } = useAuth();
     const [quizzes, setQuizzes] = useState([]);
     const [materials, setMaterials] = useState([]);
     const [loading, setLoading] = useState(true);
     const [loadingMaterials, setLoadingMaterials] = useState(true);
-    const [isExpanded, setIsExpanded] = useState(index === 0); // Expand first topic by default
+    const [localExpanded, setLocalExpanded] = useState(index === 0);
+    const isExpanded = propIsExpanded !== undefined ? propIsExpanded : localExpanded;
+
+    const handleToggle = () => {
+        if (onToggleExpand) {
+            onToggleExpand();
+        } else {
+            setLocalExpanded(!localExpanded);
+        }
+    };
 
     // Custom delete modal
     const [showDeleteTopicModal, setShowDeleteTopicModal] = useState(false);
@@ -461,20 +483,23 @@ function TopicNode({ topic, index, isStudent, isEnrolled = true, onSelectQuiz, o
     };
 
     return (
-        <div className="bg-[#ffffff] border border-[#edebe3] rounded-2xl shadow-sm overflow-hidden transition-all duration-200">
+        <div className="bg-[#ffffff] dark:bg-[var(--color-bg-card)] border border-[#edebe3] dark:border-[var(--color-border)] rounded-2xl shadow-sm overflow-hidden transition-all duration-200">
             <div 
-                onClick={() => setIsExpanded(!isExpanded)}
-                className="p-5 flex items-center justify-between cursor-pointer hover:bg-[#f9f8f6] transition-colors select-none"
+                onClick={handleToggle}
+                className={`p-5 flex items-center justify-between cursor-pointer accordion-header transition-colors select-none ${
+                    isExpanded ? 'bg-[var(--accordion-open-bg)] is-expanded' : 'hover:bg-[var(--row-hover-bg)]'
+                }`}
+                aria-expanded={isExpanded}
             >
                 <div className="flex items-center gap-4 flex-1">
-                    <div className="w-8 h-8 rounded-full bg-[#f9f8f6] border border-[#e1ddd1] text-xs font-bold text-[#00262b] flex items-center justify-center flex-shrink-0">
-                        {index + 1}
+                    <div className="w-8 h-8 rounded-full bg-[#f9f8f6] dark:bg-[var(--color-bg-subtle)] border border-[#e1ddd1] dark:border-[var(--color-border)] text-xs font-bold text-[#00262b] dark:text-[var(--color-text)] flex items-center justify-center flex-shrink-0">
+                        {topic.sequence_order !== undefined && topic.sequence_order !== null ? topic.sequence_order : index + 1}
                     </div>
                     <div className="flex-1">
-                        <h3 className="font-extrabold text-[#00262b] text-base leading-snug">
+                        <h3 className="font-extrabold text-[#00262b] dark:text-[var(--color-text)] text-base leading-snug">
                             {topic.title}
                         </h3>
-                        <p className="text-xs text-[#52716c] mt-1 line-clamp-1">
+                        <p className="text-xs text-[#52716c] dark:text-[var(--color-text-secondary)] mt-1 line-clamp-1">
                             {topic.description || 'No topic details listed.'}
                         </p>
                     </div>
@@ -484,15 +509,15 @@ function TopicNode({ topic, index, isStudent, isEnrolled = true, onSelectQuiz, o
                     {role === 'TEACHER' && (
                         <button 
                             onClick={() => setShowDeleteTopicModal(true)}
-                            className="text-[#d64000] hover:text-[#00262b] p-1 transition-colors mr-1"
+                            className="text-[#d64000] dark:text-[#ff7043] hover:text-[#00262b] dark:hover:text-[var(--color-text)] p-1 transition-colors mr-1"
                             title="Delete Topic"
                         >
                             <Trash2 size={15} />
                         </button>
                     )}
                     <button 
-                        onClick={() => setIsExpanded(!isExpanded)} 
-                        className="text-[#52716c] hover:text-[#00262b] transition-colors p-1"
+                        onClick={handleToggle} 
+                        className="text-[#52716c] dark:text-[var(--color-text-secondary)] hover:text-[#00262b] dark:hover:text-[var(--color-text)] transition-colors p-1"
                     >
                         {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                     </button>
@@ -500,7 +525,7 @@ function TopicNode({ topic, index, isStudent, isEnrolled = true, onSelectQuiz, o
             </div>
 
             {isExpanded && (
-                <div className="p-5 border-t border-[#f3f1ed] bg-[#ffffff] space-y-6">
+                <div className="p-5 border-t border-[#f3f1ed] dark:border-[var(--color-border)] bg-[#ffffff] dark:bg-[var(--color-bg-card)] space-y-6">
                     {isStudent && (
                         <div className="flex items-center justify-between text-xs text-[#52716c] bg-[#f9f8f6] border border-[#edebe3] rounded-xl p-3 shadow-xs">
                             <span className="font-bold text-[#00262b]">Course Completed</span>
@@ -1315,6 +1340,10 @@ export default function CourseView({ course: courseProp, onBack: onBackProp, onS
     const [activeMaterial, setActiveMaterial] = useState(null);
     const [showDeleteCourseModal, setShowDeleteCourseModal] = useState(false);
 
+    // Track expanded topic cards so real-time updates don't reset accordion state
+    const [expandedTopicIds, setExpandedTopicIds] = useState(() => new Set());
+    const [hasInitializedExpanded, setHasInitializedExpanded] = useState(false);
+
     useEffect(() => {
         if (!courseProp && paramCourseId) {
             setCourseLoading(true);
@@ -1327,6 +1356,7 @@ export default function CourseView({ course: courseProp, onBack: onBackProp, onS
         }
     }, [courseProp, paramCourseId]);
 
+    // Initial load and role checks
     useEffect(() => {
         if (course?.id) {
             loadTopics();
@@ -1336,6 +1366,42 @@ export default function CourseView({ course: courseProp, onBack: onBackProp, onS
                 checkTaAssignment();
             }
         }
+    }, [course?.id]);
+
+    // Automatically expand the first topic on first load without collapsing user-opened ones later
+    useEffect(() => {
+        if (topics.length > 0 && !hasInitializedExpanded) {
+            setExpandedTopicIds(new Set([topics[0].id]));
+            setHasInitializedExpanded(true);
+        }
+    }, [topics, hasInitializedExpanded]);
+
+    const toggleTopicExpand = (topicId) => {
+        setExpandedTopicIds(prev => {
+            const next = new Set(prev);
+            if (next.has(topicId)) {
+                next.delete(topicId);
+            } else {
+                next.add(topicId);
+            }
+            return next;
+        });
+    };
+
+    // Real-time course events subscription (Server-Sent Events)
+    useEffect(() => {
+        if (!course?.id) return;
+        const unsubscribe = subscribeToCourseEvents(course.id, {
+            onTopicsChanged: () => {
+                loadTopics(true);
+            },
+            onReconnect: () => {
+                loadTopics(true);
+            }
+        });
+        return () => {
+            unsubscribe();
+        };
     }, [course?.id]);
 
     const checkEnrollment = async () => {
@@ -1424,8 +1490,10 @@ export default function CourseView({ course: courseProp, onBack: onBackProp, onS
         }
     };
 
-    async function loadTopics() {
-        setLoading(true);
+    async function loadTopics(isBackground = false) {
+        if (!isBackground && topics.length === 0) {
+            setLoading(true);
+        }
         try {
             const list = await api.getTopics(course.id);
             setTopics(list);
@@ -1433,7 +1501,9 @@ export default function CourseView({ course: courseProp, onBack: onBackProp, onS
         } catch (err) {
             console.error('Error fetching topics:', err.message);
         } finally {
-            setLoading(false);
+            if (!isBackground) {
+                setLoading(false);
+            }
         }
     }
 
@@ -1454,18 +1524,33 @@ export default function CourseView({ course: courseProp, onBack: onBackProp, onS
         setError('');
         setSuccess(false);
 
-        if (!topicTitle) {
+        if (!topicTitle.trim()) {
             setError('Topic title is required');
             return;
         }
 
+        const parsedOrder = parseInt(topicOrder, 10);
+        if (isNaN(parsedOrder) || parsedOrder < 1) {
+            setError('Priority Number must be a positive integer (minimum 1)');
+            return;
+        }
+
         try {
-            await api.createTopic(
+            const res = await api.createTopic(
                 course.id, 
-                topicTitle, 
+                topicTitle.trim(), 
                 topicDesc, 
-                parseInt(topicOrder)
+                parsedOrder
             );
+            if (res && (res.success || res.topic)) {
+                setSuccess(true);
+                setTopicTitle('');
+                setTopicDesc('');
+                await loadTopics(true);
+                if (window.showToast) {
+                    window.showToast('Topic node published successfully!', 'success');
+                }
+            }
         } catch (err) {
             setError(err.message || 'Failed to create topic');
         }
@@ -1582,9 +1667,9 @@ export default function CourseView({ course: courseProp, onBack: onBackProp, onS
                     </h2>
 
                     {loading ? (
-                        <div className="text-[#52716c] text-sm">Loading syllabus nodes...</div>
+                        <div className="text-[#52716c] dark:text-[var(--color-text-secondary)] text-sm">Loading syllabus nodes...</div>
                     ) : topics.length === 0 ? (
-                        <div className="bg-[#ffffff] border border-[#edebe3]  rounded-2xl p-8 text-center text-[#52716c] text-sm shadow-sm">
+                        <div className="bg-[#ffffff] dark:bg-[var(--color-bg-card)] border border-[#edebe3] dark:border-[var(--color-border)] rounded-2xl p-8 text-center text-[#52716c] dark:text-[var(--color-text-secondary)] text-sm shadow-sm">
                             No topics have been structured for this syllabus yet.
                         </div>
                     ) : (
@@ -1599,8 +1684,10 @@ export default function CourseView({ course: courseProp, onBack: onBackProp, onS
                                     onSelectQuiz={onSelectQuiz} 
                                     onSelectMaterial={(material) => setActiveMaterial(material)}
                                     role={user.role}
-                                    onReloadTopics={loadTopics}
+                                    onReloadTopics={() => loadTopics(true)}
                                     onAskTutor={(topicId, topicTitle) => onAskTutor && onAskTutor(topicId, topicTitle)}
+                                    isExpanded={expandedTopicIds.has(topic.id)}
+                                    onToggleExpand={() => toggleTopicExpand(topic.id)}
                                 />
                             ))}
                         </div>
@@ -1609,30 +1696,30 @@ export default function CourseView({ course: courseProp, onBack: onBackProp, onS
 
                 {/* Add Topic form (Teacher only) */}
                 {user.role === 'TEACHER' && (
-                    <div className="lg:col-span-2 bg-[#ffffff] border border-[#edebe3] rounded-2xl p-6 shadow-sm">
-                        <h2 className="text-base font-extrabold text-[#00262b] mb-6 flex items-center gap-2">
+                    <div className="lg:col-span-2 bg-[#ffffff] dark:bg-[var(--color-bg-card)] border border-[#edebe3] dark:border-[var(--color-border)] rounded-2xl p-6 shadow-sm">
+                        <h2 className="text-base font-extrabold text-[#00262b] dark:text-[var(--color-text)] mb-6 flex items-center gap-2">
                             <Plus size={18} className="text-[#04c5e7]" />
                             <span>Add Curriculum Topic</span>
                         </h2>
 
                         {error && (
-                            <div className="bg-[#f3f1ed] text-[#d64000] border border-[#d64000]/30 p-3 rounded-xl text-xs mb-4 font-bold">
+                            <div className="bg-[#f3f1ed] dark:bg-[var(--color-bg-neutral)] text-[#d64000] dark:text-[#ff7043] border border-[#d64000]/30 p-3 rounded-xl text-xs mb-4 font-bold">
                                 {error}
                             </div>
                         )}
 
                         {success && (
-                            <div className="bg-[#f3f1ed] text-[#00262b] border border-[#04c5e7] p-3 rounded-xl text-xs mb-4 font-bold">
+                            <div className="bg-[#f3f1ed] dark:bg-[var(--color-bg-neutral)] text-[#00262b] dark:text-[var(--color-text)] border border-[#04c5e7] p-3 rounded-xl text-xs mb-4 font-bold">
                                 Topic node added successfully!
                             </div>
                         )}
 
                         <form onSubmit={handleCreateTopic} className="space-y-4">
                             <div>
-                                <label className="block text-xs font-bold uppercase tracking-wider text-[#52716c] mb-2">Topic Title</label>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-[#52716c] dark:text-[var(--color-text-secondary)] mb-2">Topic Title</label>
                                 <input 
                                     type="text" 
-                                    className="w-full bg-[#ffffff] border border-[#e1ddd1] rounded-xl px-4 py-2.5 text-sm text-[#00262b] focus:outline-none focus:border-[#04c5e7]" 
+                                    className="w-full bg-[#ffffff] dark:bg-[var(--color-bg-card)] border border-[#e1ddd1] dark:border-[var(--color-border)] rounded-xl px-4 py-2.5 text-sm text-[#00262b] dark:text-[var(--color-text)] focus:outline-none focus:border-[#04c5e7]" 
                                     placeholder="e.g. Memory Layout"
                                     value={topicTitle}
                                     onChange={(e) => setTopicTitle(e.target.value)}
@@ -1641,10 +1728,11 @@ export default function CourseView({ course: courseProp, onBack: onBackProp, onS
                             </div>
 
                             <div>
-                                <label className="block text-xs font-bold uppercase tracking-wider text-[#52716c] mb-2">Sequence Order</label>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-[#52716c] dark:text-[var(--color-text-secondary)] mb-2">Priority Number</label>
                                 <input 
                                     type="number" 
-                                    className="w-full bg-[#ffffff] border border-[#e1ddd1] rounded-xl px-4 py-2.5 text-sm text-[#00262b] focus:outline-none focus:border-[#04c5e7]" 
+                                    className="w-full bg-[#ffffff] dark:bg-[var(--color-bg-card)] border border-[#e1ddd1] dark:border-[var(--color-border)] rounded-xl px-4 py-2.5 text-sm text-[#00262b] dark:text-[var(--color-text)] focus:outline-none focus:border-[#04c5e7]" 
+                                    placeholder="e.g. 1"
                                     value={topicOrder}
                                     onChange={(e) => setTopicOrder(e.target.value)}
                                     min="1"
@@ -1653,9 +1741,9 @@ export default function CourseView({ course: courseProp, onBack: onBackProp, onS
                             </div>
 
                             <div>
-                                <label className="block text-xs font-bold uppercase tracking-wider text-[#52716c] mb-2">Description</label>
+                                <label className="block text-xs font-bold uppercase tracking-wider text-[#52716c] dark:text-[var(--color-text-secondary)] mb-2">Description</label>
                                 <textarea 
-                                    className="w-full bg-[#ffffff] border border-[#e1ddd1] rounded-xl px-4 py-2.5 text-sm text-[#00262b] focus:outline-none focus:border-[#04c5e7]" 
+                                    className="w-full bg-[#ffffff] dark:bg-[var(--color-bg-card)] border border-[#e1ddd1] dark:border-[var(--color-border)] rounded-xl px-4 py-2.5 text-sm text-[#00262b] dark:text-[var(--color-text)] focus:outline-none focus:border-[#04c5e7]" 
                                     rows="3"
                                     placeholder="Overview..."
                                     value={topicDesc}

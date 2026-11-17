@@ -184,18 +184,21 @@ export default function StudentProgressTracker() {
                         return (
                             <div 
                                 key={uniqueKey} 
-                                className="bg-[#ffffff] border border-[#edebe3] rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+                                className="bg-[#ffffff] dark:bg-[var(--color-bg-card)] border border-[#edebe3] dark:border-[var(--color-border)] rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow"
                             >
                                 {/* Student Summary Row */}
                                 <div 
                                     onClick={() => toggleExpand(student.studentId, student.courseId)}
-                                    className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 cursor-pointer select-none"
+                                    className={`p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 cursor-pointer accordion-header select-none transition-colors ${
+                                        isExpanded ? 'bg-[var(--accordion-open-bg)] is-expanded' : 'hover:bg-[var(--row-hover-bg)]'
+                                    }`}
+                                    aria-expanded={isExpanded}
                                 >
                                     <div className="flex flex-col">
-                                        <span className="font-extrabold text-base text-[#00262b]">
+                                        <span className="font-extrabold text-base text-[#00262b] dark:text-[var(--color-text)]">
                                             {student.firstName} {student.lastName}
                                         </span>
-                                        <span className="text-[11px] text-[#52716c] mt-0.5">
+                                        <span className="text-[11px] text-[#52716c] dark:text-[var(--color-text-secondary)] mt-0.5">
                                             {student.email} • Enrolled {new Date(student.enrolledAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                                         </span>
                                     </div>
@@ -203,19 +206,19 @@ export default function StudentProgressTracker() {
                                     <div className="flex flex-wrap items-center gap-6 sm:gap-10">
                                         {/* Course Path column */}
                                         <div className="flex flex-col">
-                                            <span className="text-[10px] font-bold uppercase tracking-wider text-[#52716c]">Course Template</span>
-                                            <span className="text-xs text-[#00262b] mt-0.5 font-bold">
+                                            <span className="text-[10px] font-bold uppercase tracking-wider text-[#52716c] dark:text-[var(--color-text-secondary)]">Course Template</span>
+                                            <span className="text-xs text-[#00262b] dark:text-[var(--color-text)] mt-0.5 font-bold">
                                                 {student.courseTitle}
                                             </span>
                                         </div>
 
                                         {/* Progress Bar completion */}
                                         <div className="flex flex-col w-32">
-                                            <div className="flex justify-between items-center text-[10px] font-bold text-[#52716c] mb-1">
+                                            <div className="flex justify-between items-center text-[10px] font-bold text-[#52716c] dark:text-[var(--color-text-secondary)] mb-1">
                                                 <span>PROGRESS</span>
-                                                <span className="text-[#00262b] font-extrabold">{student.overallProgress}%</span>
+                                                <span className="text-[#00262b] dark:text-[var(--color-text)] font-extrabold">{student.overallProgress}%</span>
                                             </div>
-                                            <div className="w-full h-2 bg-[#f3f1ed] border border-[#edebe3] rounded-full overflow-hidden">
+                                            <div className="w-full h-2 bg-[#f3f1ed] dark:bg-[var(--color-bg-neutral)] border border-[#edebe3] dark:border-[var(--color-border)] rounded-full overflow-hidden">
                                                 <div 
                                                     className="h-full bg-[#04c5e7] rounded-full" 
                                                     style={{ width: `${student.overallProgress}%` }}
@@ -225,15 +228,15 @@ export default function StudentProgressTracker() {
 
                                         {/* Average skill level */}
                                         <div className="flex flex-col">
-                                            <span className="text-[10px] font-bold uppercase tracking-wider text-[#52716c]">Avg Skill Level</span>
-                                            <span className="text-xs text-[#00262b] mt-0.5 font-extrabold flex items-center gap-1.5">
+                                            <span className="text-[10px] font-bold uppercase tracking-wider text-[#52716c] dark:text-[var(--color-text-secondary)]">Avg Skill Level</span>
+                                            <span className="text-xs text-[#00262b] dark:text-[var(--color-text)] mt-0.5 font-extrabold flex items-center gap-1.5">
                                                 <div className="w-2 h-2 rounded-full bg-[#04c5e7]" />
                                                 <span>{student.averageSkillScore}%</span>
                                             </span>
                                         </div>
 
                                         {/* Chevron Toggle */}
-                                        <div className="text-[#52716c] self-center">
+                                        <div className="text-[#52716c] dark:text-[var(--color-text-secondary)] self-center">
                                             {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                                         </div>
                                     </div>
@@ -241,7 +244,7 @@ export default function StudentProgressTracker() {
 
                                 {/* Expanded profile metrics */}
                                 {isExpanded && (
-                                    <div className="px-5 pb-6 pt-2 border-t border-[#f3f1ed] bg-[#ffffff] space-y-6">
+                                    <div className="px-5 pb-6 pt-2 border-t border-[#f3f1ed] dark:border-[var(--color-border)] bg-[#ffffff] dark:bg-[var(--color-bg-card)] space-y-6">
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                             
                                             {/* Left: Topic Breakdowns */}

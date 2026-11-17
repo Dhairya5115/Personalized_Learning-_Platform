@@ -442,15 +442,15 @@ export default function Dashboard({ onSelectCourse: onSelectCourseProp, onGoToCa
                                     </thead>
                                     <tbody className="divide-y divide-[#f3f1ed]">
                                         {taOverview.map(ta => (
-                                            <tr key={ta.link_id} className="hover:bg-[#f9f8f6] transition-colors">
-                                                <td className="p-3 font-semibold text-[#00262b]">
+                                            <tr key={ta.link_id} className="table-row-hover hover:bg-[var(--row-hover-bg)] transition-colors">
+                                                <td className="p-3 font-semibold text-[#00262b] dark:text-[var(--color-text)]">
                                                     <div>{ta.ta_first_name} {ta.ta_last_name}</div>
-                                                    <div className="text-[10px] font-normal text-[#52716c]">{ta.ta_email}</div>
+                                                    <div className="text-[10px] font-normal text-[#52716c] dark:text-[var(--color-text-secondary)]">{ta.ta_email}</div>
                                                 </td>
-                                                <td className="p-3 font-medium text-[#00262b]">{ta.course_title}</td>
-                                                <td className="p-3 text-center font-bold text-[#00262b]">{ta.distinct_student_count || 0}</td>
+                                                <td className="p-3 font-medium text-[#00262b] dark:text-[var(--color-text)]">{ta.course_title}</td>
+                                                <td className="p-3 text-center font-bold text-[#00262b] dark:text-[var(--color-text)]">{ta.distinct_student_count || 0}</td>
                                                 <td className="p-3 text-right">
-                                                    <span className="px-3 py-1 bg-[#f3f1ed] text-[#00262b] border border-[#e1ddd1] rounded-[94px] text-[10px] font-bold uppercase tracking-wider">
+                                                    <span className="px-3 py-1 bg-[#f3f1ed] dark:bg-[#004d57] text-[#00262b] dark:text-[#f9f8f6] border border-[#e1ddd1] dark:border-[var(--color-border)] rounded-[94px] text-[10px] font-bold uppercase tracking-wider">
                                                         {ta.current_status || 'Active'}
                                                     </span>
                                                 </td>

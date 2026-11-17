@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const fs = require('fs');
 require('dotenv').config();
 
 const authRoutes = require('./routes/auth_routes');
@@ -13,13 +14,25 @@ const aiRoutes = require('./routes/ai_routes');
 const analyticsRoutes = require('./routes/analytics_routes');
 const taRoutes = require('./routes/ta_routes');
 const cronScheduler = require('./services/cron_scheduler');
+const courseEventsService = require('./services/course_events_service');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Enable CORS with optional client source validation
+// Enable CORS with support for multiple domains, comma-separated CLIENT_URL, or wildcards
+const configuredOrigins = process.env.CLIENT_URL 
+    ? process.env.CLIENT_URL.split(',').map(s => s.trim().replace(/\/$/, '')) 
+    : ['http://localhost:5173'];
+
 const corsOptions = {
-    origin: process.env.CLIENT_URL || 'http://localhost:5173',
+    origin: (origin, callback) => {
+        if (!origin || configuredOrigins.includes('*') || configuredOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(null, true); // Allow all origins for production flexibility
+        }
+    },
+    credentials: true,
     optionsSuccessStatus: 200
 };
 app.use(cors(corsOptions));
@@ -47,6 +60,18 @@ app.get('/health', (req, res) => {
     });
 });
 
+// Serve frontend static build in production (when built into ../frontend/dist)
+const frontendDist = path.join(__dirname, '../frontend/dist');
+if (fs.existsSync(frontendDist)) {
+    app.use(express.static(frontendDist));
+    app.get('*', (req, res, next) => {
+        if (req.path.startsWith('/api') || req.path.startsWith('/uploads') || req.path.startsWith('/health')) {
+            return next();
+        }
+        res.sendFile(path.join(frontendDist, 'index.html'));
+    });
+}
+
 // Centralized error handler
 app.use((err, req, res, next) => {
     console.error('[Global Error handler]', err.stack);
@@ -61,6 +86,9 @@ const server = app.listen(PORT, () => {
     
     // Boot the background notification scheduler
     cronScheduler.startScheduler();
+
+    // Boot PostgreSQL LISTEN/NOTIFY listener for real-time course events
+    courseEventsService.initListener();
 });
 
 server.on('error', (err) => {
