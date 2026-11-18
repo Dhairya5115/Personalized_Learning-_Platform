@@ -1,76 +1,241 @@
-const nodemailer = require('nodemailer');
 const ics = require('ics');
-const dns = require('dns');
 require('dotenv').config();
 
 const getFrontendUrl = () => {
     return process.env.FRONTEND_URL || process.env.CLIENT_URL || (process.env.NODE_ENV === 'production' ? 'https://tailorlearn.vercel.app' : 'http://localhost:5173');
 };
 
-// Configure Google & Cloudflare public DNS resolvers to prevent Windows OS GetAddrInfo IPv6 timeouts (queryA ETIMEOUT)
-try {
-    dns.setServers(['8.8.8.8', '1.1.1.1']);
-} catch (e) {}
+/**
+ * Determine active email delivery provider:
+ * 1. 'brevo'  - Brevo HTTPS REST API (Port 443) -> Primary recommendation (300 free emails/day, single sender verification)
+ * 2. 'resend' - Resend HTTPS REST API (Port 443) -> Secondary (3,000 free emails/mo, requires custom domain for arbitrary recipients)
+ * 3. 'smtp'   - Nodemailer SMTP (local development only, blocked on Render free tier)
+ * 4. 'mock'   - Console logger fallback when no credentials are configured
+ */
+function getActiveProvider() {
+    if (process.env.BREVO_API_KEY) return 'brevo';
+    if (process.env.RESEND_API_KEY) return 'resend';
+    if (process.env.SMTP_USER && process.env.SMTP_PASS && process.env.NODE_ENV !== 'production') return 'smtp';
+    return 'mock';
+}
+
+function getSenderInfo() {
+    const name = process.env.EMAIL_SENDER_NAME || 'TailorLearn';
+    const email = process.env.BREVO_SENDER_EMAIL || process.env.RESEND_FROM || process.env.SMTP_FROM || process.env.SMTP_USER || 'no-reply@tailorlearn.com';
+    return { name, email };
+}
 
 /**
- * Creates a Nodemailer transporter using dynamic IPv4 DNS resolution
- * to bypass Windows/Node.js IPv6 GetAddrInfo DNS resolution timeouts.
+ * Non-blocking startup verification to inform operators of email status
+ * without crashing or hanging on blocked TCP ports.
  */
-async function getTransporter() {
-    const smtpHost = process.env.SMTP_HOST || 'smtp.gmail.com';
-    let targetHost = smtpHost;
+async function verifyEmailConfiguration() {
+    const provider = getActiveProvider();
+    const sender = getSenderInfo();
 
-    if (smtpHost === 'smtp.gmail.com') {
-        try {
-            const addrs = await new Promise((resolve) => {
-                dns.resolve4('smtp.gmail.com', (err, addresses) => {
-                    if (!err && addresses && addresses.length > 0) resolve(addresses);
-                    else resolve(null);
-                });
-            });
-            if (addrs && addrs[0]) {
-                targetHost = addrs[0];
-            }
-        } catch (e) {}
+    console.log('----------------------------------------------------');
+    if (provider === 'brevo') {
+        console.log(`[Email Service] ✔ Configured with Brevo HTTPS API (Port 443)`);
+        console.log(`  Sender: "${sender.name}" <${sender.email}>`);
+        console.log(`  Daily limit: 300 free transactional emails/day`);
+    } else if (provider === 'resend') {
+        console.log(`[Email Service] ✔ Configured with Resend HTTPS API (Port 443)`);
+        console.log(`  Sender: "${sender.name}" <${sender.email}>`);
+    } else if (provider === 'smtp') {
+        console.log(`[Email Service] ℹ Using local SMTP transport for development`);
+        console.log(`  Host: ${process.env.SMTP_HOST}:${process.env.SMTP_PORT}`);
+    } else {
+        console.warn(`[Email Service] ⚠️ WARNING: No HTTPS email provider configured!`);
+        console.warn(`  Render blocks outbound SMTP ports (25, 465, 587) on free services.`);
+        console.warn(`  To enable live email delivery, set BREVO_API_KEY and BREVO_SENDER_EMAIL in Render environment variables.`);
+        console.warn(`  Outgoing emails will be logged to the console in mock mode.`);
+    }
+    console.log('----------------------------------------------------');
+}
+
+/**
+ * Send an email via Brevo REST API (HTTPS over port 443)
+ */
+async function sendViaBrevo({ to, subject, html, attachments = [] }, timeoutMs = 8000) {
+    const sender = getSenderInfo();
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    // Format attachments for Brevo: [{ name: string, content: base64 string }]
+    const formattedAttachments = attachments.map(att => {
+        let contentBase64 = '';
+        if (Buffer.isBuffer(att.content)) {
+            contentBase64 = att.content.toString('base64');
+        } else if (typeof att.content === 'string') {
+            contentBase64 = Buffer.from(att.content, 'utf8').toString('base64');
+        }
+        return {
+            name: att.filename || 'attachment',
+            content: contentBase64
+        };
+    });
+
+    const payload = {
+        sender: { name: sender.name, email: sender.email },
+        to: [{ email: to }],
+        subject: subject,
+        htmlContent: html
+    };
+
+    if (formattedAttachments.length > 0) {
+        payload.attachment = formattedAttachments;
     }
 
-    const port = parseInt(process.env.SMTP_PORT) || 587;
-    const isSecure = process.env.SMTP_SECURE === 'true' && port === 465;
+    try {
+        const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+            method: 'POST',
+            headers: {
+                'api-key': process.env.BREVO_API_KEY,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(payload),
+            signal: controller.signal
+        });
 
-    return nodemailer.createTransport({
-        host: targetHost,
-        port: port,
-        secure: isSecure,
+        if (!response.ok) {
+            const errBody = await response.text();
+            throw new Error(`Brevo HTTP ${response.status}: ${errBody}`);
+        }
+
+        const data = await response.json();
+        return { success: true, messageId: data.messageId, provider: 'brevo' };
+    } finally {
+        clearTimeout(timeoutId);
+    }
+}
+
+/**
+ * Send an email via Resend REST API (HTTPS over port 443)
+ */
+async function sendViaResend({ to, subject, html, attachments = [] }, timeoutMs = 8000) {
+    const sender = getSenderInfo();
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    const formattedAttachments = attachments.map(att => ({
+        filename: att.filename || 'attachment',
+        content: Buffer.isBuffer(att.content) ? att.content.toString('base64') : Buffer.from(att.content).toString('base64')
+    }));
+
+    const payload = {
+        from: `${sender.name} <${sender.email}>`,
+        to: [to],
+        subject: subject,
+        html: html
+    };
+
+    if (formattedAttachments.length > 0) {
+        payload.attachments = formattedAttachments;
+    }
+
+    try {
+        const response = await fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload),
+            signal: controller.signal
+        });
+
+        if (!response.ok) {
+            const errBody = await response.text();
+            throw new Error(`Resend HTTP ${response.status}: ${errBody}`);
+        }
+
+        const data = await response.json();
+        return { success: true, messageId: data.id, provider: 'resend' };
+    } finally {
+        clearTimeout(timeoutId);
+    }
+}
+
+/**
+ * Local SMTP fallback for non-production development environments
+ */
+async function sendViaSmtp({ to, subject, html, attachments = [] }) {
+    const nodemailer = require('nodemailer');
+    const sender = getSenderInfo();
+
+    const transporter = nodemailer.createTransport({
+        host: process.env.SMTP_HOST || 'localhost',
+        port: parseInt(process.env.SMTP_PORT) || 587,
+        secure: process.env.SMTP_SECURE === 'true',
         auth: {
             user: process.env.SMTP_USER || '',
             pass: process.env.SMTP_PASS || ''
         },
-        tls: {
-            servername: smtpHost,
-            rejectUnauthorized: false
-        }
+        connectionTimeout: 5000,
+        greetingTimeout: 5000,
+        socketTimeout: 8000
     });
+
+    const info = await transporter.sendMail({
+        from: `"${sender.name}" <${sender.email}>`,
+        to,
+        subject,
+        html,
+        attachments
+    });
+
+    return { success: true, messageId: info.messageId, provider: 'smtp' };
 }
 
-// Verify connection configuration on startup
-getTransporter().then(transporter => {
-    transporter.verify((error, success) => {
-        if (error) {
-            console.warn('Nodemailer SMTP configuration invalid or offline:', error.message);
-        } else {
-            console.log('Nodemailer SMTP connection verified successfully');
+/**
+ * Universal dispatcher with retries, exponential backoff, and strict timeout.
+ * Errors are caught and logged so email failures never crash or block parent requests.
+ */
+async function dispatchEmail(options) {
+    const provider = getActiveProvider();
+
+    if (provider === 'mock') {
+        console.log(`[Email Mock Dispatch] To: ${options.to} | Subject: "${options.subject}"`);
+        return { success: true, messageId: 'mock-id-' + Date.now(), provider: 'mock' };
+    }
+
+    const MAX_RETRIES = 2;
+    let lastError = null;
+
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        try {
+            let result;
+            if (provider === 'brevo') {
+                result = await sendViaBrevo(options);
+            } else if (provider === 'resend') {
+                result = await sendViaResend(options);
+            } else if (provider === 'smtp') {
+                result = await sendViaSmtp(options);
+            }
+
+            console.log(`[Email Service] ✔ Sent via ${provider} to ${options.to} (Message ID: ${result?.messageId || 'OK'})`);
+            return { success: true, ...result };
+        } catch (err) {
+            lastError = err;
+            console.warn(`[Email Service] Attempt ${attempt}/${MAX_RETRIES} failed for ${options.to}: ${err.message}`);
+
+            if (attempt < MAX_RETRIES) {
+                const backoffMs = attempt * 600;
+                await new Promise(res => setTimeout(res, backoffMs));
+            }
         }
-    });
-}).catch(err => {
-    console.warn('Nodemailer init error:', err.message);
-});
+    }
+
+    console.error(`[Email Service Error] All ${MAX_RETRIES} attempts failed for ${options.to}: ${lastError?.message}`);
+    return { success: false, error: lastError?.message || 'Email delivery failed' };
+}
 
 /**
- * Send Course Purchase Confirmation
+ * 1. Send Course Purchase Confirmation
  */
 async function sendPurchaseConfirmation(toEmail, studentName, courseTitle, price) {
-    const mailOptions = {
-        from: `"Personalized Learning Platform" <${process.env.SMTP_USER || 'no-reply@learningplatform.com'}>`,
+    return dispatchEmail({
         to: toEmail,
         subject: `Welcome to ${courseTitle}! - Enrollment Confirmed`,
         html: `
@@ -101,23 +266,14 @@ async function sendPurchaseConfirmation(toEmail, studentName, courseTitle, price
                 <p style="font-size: 13px; color: #9ca3af; line-height: 1.5;">If you did not make this purchase, please contact our support team immediately.</p>
             </div>
         `
-    };
-
-    try {
-        const transporter = await getTransporter();
-        await transporter.sendMail(mailOptions);
-        console.log(`[Email] Purchase confirmation sent successfully to: ${toEmail}`);
-    } catch (err) {
-        console.error('[Email Error] Failed to send purchase confirmation:', err.message);
-    }
+    });
 }
 
 /**
- * Send Spaced Repetition Review Reminder
+ * 2. Send Spaced Repetition Review Reminder
  */
 async function sendSpacedRepetitionReminder(toEmail, studentName, overdueCount) {
-    const mailOptions = {
-        from: `"Personalized Learning Platform" <${process.env.SMTP_USER || 'no-reply@learningplatform.com'}>`,
+    return dispatchEmail({
         to: toEmail,
         subject: `Daily Brain Boost: ${overdueCount} concept reviews waiting!`,
         html: `
@@ -131,23 +287,14 @@ async function sendSpacedRepetitionReminder(toEmail, studentName, overdueCount) 
                 <p style="font-size: 12px; color: #9ca3af;">You receive these notifications based on concepts you flag to remember. You can update your alert settings in your profile.</p>
             </div>
         `
-    };
-
-    try {
-        const transporter = await getTransporter();
-        await transporter.sendMail(mailOptions);
-        console.log(`[Email] SRS reminder sent to: ${toEmail}`);
-    } catch (err) {
-        console.error('[Email Error] Failed to send SRS reminder:', err.message);
-    }
+    });
 }
 
 /**
- * Send Streak Protection Warning
+ * 3. Send Streak Protection Warning
  */
 async function sendStreakWarning(toEmail, studentName, currentStreak) {
-    const mailOptions = {
-        from: `"Personalized Learning Platform" <${process.env.SMTP_USER || 'no-reply@learningplatform.com'}>`,
+    return dispatchEmail({
         to: toEmail,
         subject: `🔥 Save your ${currentStreak}-day streak!`,
         html: `
@@ -161,23 +308,14 @@ async function sendStreakWarning(toEmail, studentName, currentStreak) {
                 <p style="font-size: 12px; color: #9ca3af;">Consistency is the key to deep technical competence. Don't let your hard work break!</p>
             </div>
         `
-    };
-
-    try {
-        const transporter = await getTransporter();
-        await transporter.sendMail(mailOptions);
-        console.log(`[Email] Streak warning sent to: ${toEmail}`);
-    } catch (err) {
-        console.error('[Email Error] Failed to send streak warning:', err.message);
-    }
+    });
 }
 
 /**
- * Send Weekly Progress Digest
+ * 4. Send Weekly Progress Digest
  */
 async function sendWeeklyDigest(toEmail, studentName, xpEarned, rank, completedQuizzes) {
-    const mailOptions = {
-        from: `"Personalized Learning Platform" <${process.env.SMTP_USER || 'no-reply@learningplatform.com'}>`,
+    return dispatchEmail({
         to: toEmail,
         subject: `Your Weekly Learning Report 📊`,
         html: `
@@ -207,24 +345,15 @@ async function sendWeeklyDigest(toEmail, studentName, xpEarned, rank, completedQ
                 </div>
             </div>
         `
-    };
-
-    try {
-        const transporter = await getTransporter();
-        await transporter.sendMail(mailOptions);
-        console.log(`[Email] Weekly digest sent to: ${toEmail}`);
-    } catch (err) {
-        console.error('[Email Error] Failed to send weekly digest:', err.message);
-    }
+    });
 }
 
 /**
- * Send Password Reset Token
+ * 5. Send Password Reset Token
  */
 async function sendPasswordReset(toEmail, resetToken) {
     const resetUrl = `${getFrontendUrl()}/reset-password?token=${resetToken}`;
-    const mailOptions = {
-        from: `"Personalized Learning Platform" <${process.env.SMTP_USER || 'no-reply@learningplatform.com'}>`,
+    return dispatchEmail({
         to: toEmail,
         subject: 'Reset Password Request',
         html: `
@@ -237,24 +366,15 @@ async function sendPasswordReset(toEmail, resetToken) {
                 <p style="font-size: 12px; color: #9ca3af; line-height: 1.5;">If you did not request this, you can safely ignore this email. Your password will remain unchanged.</p>
             </div>
         `
-    };
-
-    try {
-        const transporter = await getTransporter();
-        await transporter.sendMail(mailOptions);
-        console.log(`[Email] Password reset link sent to: ${toEmail}`);
-    } catch (err) {
-        console.error('[Email Error] Failed to send password reset:', err.message);
-    }
+    });
 }
 
 /**
- * Send TA Application Decision Notification (APPROVED / REJECTED)
+ * 6. Send TA Application Decision Notification (APPROVED / REJECTED)
  */
 async function sendTaApplicationDecision(toEmail, taName, courseTitle, decision) {
     const isApproved = decision.toUpperCase() === 'APPROVED';
-    const mailOptions = {
-        from: `"Personalized Learning Platform" <${process.env.SMTP_USER || 'no-reply@learningplatform.com'}>`,
+    return dispatchEmail({
         to: toEmail,
         subject: `Update on your TA Application for ${courseTitle}`,
         html: `
@@ -277,23 +397,14 @@ async function sendTaApplicationDecision(toEmail, taName, courseTitle, decision)
                 `}
             </div>
         `
-    };
-
-    try {
-        const transporter = await getTransporter();
-        await transporter.sendMail(mailOptions);
-        console.log(`[Email] TA application decision (${decision}) sent to: ${toEmail}`);
-    } catch (err) {
-        console.error('[Email Error] Failed to send TA application decision:', err.message);
-    }
+    });
 }
 
 /**
- * Send New Doubt Request Email to TA
+ * 7. Send New Doubt Request Email to TA
  */
 async function sendNewDoubtRequestToTa(toEmail, taName, studentName, courseTitle, subject, description) {
-    const mailOptions = {
-        from: `"Personalized Learning Platform" <${process.env.SMTP_USER || 'no-reply@learningplatform.com'}>`,
+    return dispatchEmail({
         to: toEmail,
         subject: `New Doubt Request from ${studentName} - ${courseTitle}`,
         html: `
@@ -311,19 +422,11 @@ async function sendNewDoubtRequestToTa(toEmail, taName, studentName, courseTitle
                 </div>
             </div>
         `
-    };
-
-    try {
-        const transporter = await getTransporter();
-        await transporter.sendMail(mailOptions);
-        console.log(`[Email] New doubt request notification sent to TA: ${toEmail}`);
-    } catch (err) {
-        console.error('[Email Error] Failed to send doubt request to TA:', err.message);
-    }
+    });
 }
 
 /**
- * Send Scheduled Doubt Session Details to Student with .ics Calendar Invitation
+ * 8. Send Scheduled Doubt Session Details to Student with .ics Calendar Invitation
  */
 async function sendDoubtScheduledToStudent(toEmail, studentName, taEmail, taName, courseTitle, subject, meetingLink, scheduledAt) {
     const scheduledDateObj = new Date(scheduledAt);
@@ -348,7 +451,7 @@ async function sendDoubtScheduledToStudent(toEmail, studentName, taEmail, taName
             description: `Virtual 1-on-1 doubt solving session with TA ${taName}.\nMeeting Link: ${meetingLink}`,
             location: meetingLink,
             url: meetingLink,
-            organizer: { name: taName, email: taEmail || 'ta@learningplatform.com' },
+            organizer: { name: taName, email: taEmail || 'ta@tailorlearn.com' },
             attendees: [{ name: studentName, email: toEmail, rsvp: true }]
         };
 
@@ -370,7 +473,7 @@ async function sendDoubtScheduledToStudent(toEmail, studentName, taEmail, taName
     let googleCalendarUrl = '#';
     try {
         const startDate = new Date(scheduledAt);
-        const endDate = new Date(startDate.getTime() + 60 * 60 * 1000); // Default 60 min duration
+        const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
         const formatGCalDate = (d) => d.toISOString().replace(/-|:|\.\d\d\d/g, '');
         const startUTC = formatGCalDate(startDate);
         const endUTC = formatGCalDate(endDate);
@@ -387,8 +490,7 @@ async function sendDoubtScheduledToStudent(toEmail, studentName, taEmail, taName
         console.error('[Google Calendar URL Error]', gCalErr.message);
     }
 
-    const mailOptions = {
-        from: `"Personalized Learning Platform" <${process.env.SMTP_USER || 'no-reply@learningplatform.com'}>`,
+    return dispatchEmail({
         to: toEmail,
         subject: `📅 Doubt Session Scheduled: ${subject}`,
         html: `
@@ -414,18 +516,11 @@ async function sendDoubtScheduledToStudent(toEmail, studentName, taEmail, taName
             </div>
         `,
         attachments: icsAttachment ? [icsAttachment] : []
-    };
-
-    try {
-        const transporter = await getTransporter();
-        await transporter.sendMail(mailOptions);
-        console.log(`[Email] Doubt scheduled notification & calendar event sent to student: ${toEmail}`);
-    } catch (err) {
-        console.error('[Email Error] Failed to send scheduled doubt email:', err.message);
-    }
+    });
 }
 
 module.exports = {
+    verifyEmailConfiguration,
     sendPurchaseConfirmation,
     sendSpacedRepetitionReminder,
     sendStreakWarning,
@@ -435,4 +530,3 @@ module.exports = {
     sendNewDoubtRequestToTa,
     sendDoubtScheduledToStudent
 };
-

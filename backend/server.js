@@ -15,6 +15,7 @@ const analyticsRoutes = require('./routes/analytics_routes');
 const taRoutes = require('./routes/ta_routes');
 const cronScheduler = require('./services/cron_scheduler');
 const courseEventsService = require('./services/course_events_service');
+const emailService = require('./services/email_service');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -104,6 +105,9 @@ const server = app.listen(PORT, () => {
 
     // Boot PostgreSQL LISTEN/NOTIFY listener for real-time course events
     courseEventsService.initListener();
+
+    // Verify email service configuration (non-blocking, HTTPS port 443)
+    emailService.verifyEmailConfiguration();
 });
 
 server.on('error', (err) => {

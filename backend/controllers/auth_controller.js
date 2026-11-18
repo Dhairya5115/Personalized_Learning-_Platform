@@ -214,9 +214,18 @@ async function forgotPassword(req, res) {
             [token, tokenExpiry, user.id]
         );
 
-        emailService.sendPasswordReset(email.toLowerCase().trim(), token);
+        const emailResult = await emailService.sendPasswordReset(email.toLowerCase().trim(), token);
 
-        return res.json({ success: true, message: 'Password reset email template dispatched successfully.' });
+        if (!emailResult.success) {
+            console.warn('[Auth] Password reset email could not be delivered:', emailResult.error);
+            return res.json({
+                success: true,
+                warning: 'Password reset token generated, but email delivery is temporarily offline. Please verify email settings or contact support.',
+                message: 'Password reset instructions generated.'
+            });
+        }
+
+        return res.json({ success: true, message: 'Password reset instructions sent to your email.' });
 
     } catch (err) {
         console.error('Forgot password error:', err.message);
