@@ -25,6 +25,7 @@ router.delete('/topics/:id', authenticateToken, requireRole(['TEACHER', 'ADMIN']
 router.delete('/:id', authenticateToken, requireRole(['TEACHER', 'ADMIN']), courseController.deleteCourse);
 router.post('/materials/:id/complete', authenticateToken, requireRole(['STUDENT']), courseController.completeMaterial);
 router.post('/upload-local', authenticateToken, requireRole(['TEACHER', 'ADMIN']), courseController.uploadLocalFile);
+router.get('/upload-signature', authenticateToken, requireRole(['TEACHER', 'ADMIN']), courseController.getUploadSignature);
 router.get('/teacher/student-progress', authenticateToken, requireRole(['TEACHER', 'ADMIN']), courseController.getTeacherStudentProgress);
 
 module.exports = router;

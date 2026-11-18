@@ -119,7 +119,7 @@ Adaptive learning algorithms route student profile milestones and quiz attempts 
 
         if (isOpenRouter) {
             apiEndpoint = 'https://openrouter.ai/api/v1/chat/completions';
-            headers['HTTP-Referer'] = 'http://localhost:5173';
+            headers['HTTP-Referer'] = process.env.FRONTEND_URL || process.env.CLIENT_URL || 'https://tailorlearn.vercel.app';
             headers['X-Title'] = 'TailorLearn';
             requestModel = openrouterModel;
             console.log('[AI API] Fetching completions from OpenRouter model:', requestModel);

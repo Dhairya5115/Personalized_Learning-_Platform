@@ -3,6 +3,10 @@ const ics = require('ics');
 const dns = require('dns');
 require('dotenv').config();
 
+const getFrontendUrl = () => {
+    return process.env.FRONTEND_URL || process.env.CLIENT_URL || (process.env.NODE_ENV === 'production' ? 'https://tailorlearn.vercel.app' : 'http://localhost:5173');
+};
+
 // Configure Google & Cloudflare public DNS resolvers to prevent Windows OS GetAddrInfo IPv6 timeouts (queryA ETIMEOUT)
 try {
     dns.setServers(['8.8.8.8', '1.1.1.1']);
@@ -92,7 +96,7 @@ async function sendPurchaseConfirmation(toEmail, studentName, courseTitle, price
                     </table>
                 </div>
                 <div style="text-align: center; margin: 30px 0;">
-                    <a href="${process.env.CLIENT_URL || 'http://localhost:5173'}/courses" style="background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Start Learning</a>
+                    <a href="${getFrontendUrl()}/courses" style="background-color: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Start Learning</a>
                 </div>
                 <p style="font-size: 13px; color: #9ca3af; line-height: 1.5;">If you did not make this purchase, please contact our support team immediately.</p>
             </div>
@@ -122,7 +126,7 @@ async function sendSpacedRepetitionReminder(toEmail, studentName, overdueCount) 
                 <p>Hi <strong>${studentName}</strong>,</p>
                 <p>You have <strong>${overdueCount} items</strong> ready for Spaced Repetition reviews today. Retaining information is 3x more effective when you practice right on time!</p>
                 <div style="text-align: center; margin: 30px 0;">
-                    <a href="${process.env.CLIENT_URL || 'http://localhost:5173'}/reviews" style="background-color: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Start Today's Review</a>
+                    <a href="${getFrontendUrl()}/reviews" style="background-color: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Start Today's Review</a>
                 </div>
                 <p style="font-size: 12px; color: #9ca3af;">You receive these notifications based on concepts you flag to remember. You can update your alert settings in your profile.</p>
             </div>
@@ -152,7 +156,7 @@ async function sendStreakWarning(toEmail, studentName, currentStreak) {
                 <p>Hey <strong>${studentName}</strong>,</p>
                 <p>Your <strong>${currentStreak}-day learning streak</strong> is about to expire in a few hours. Spend just 5 minutes reviewing content or taking a quick quiz to keep it alive!</p>
                 <div style="text-align: center; margin: 30px 0;">
-                    <a href="${process.env.CLIENT_URL || 'http://localhost:5173'}/dashboard" style="background-color: #ef4444; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Learn Now</a>
+                    <a href="${getFrontendUrl()}/dashboard" style="background-color: #ef4444; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Learn Now</a>
                 </div>
                 <p style="font-size: 12px; color: #9ca3af;">Consistency is the key to deep technical competence. Don't let your hard work break!</p>
             </div>
@@ -199,7 +203,7 @@ async function sendWeeklyDigest(toEmail, studentName, xpEarned, rank, completedQ
                 </div>
                 <p>Fantastic job! Keep up the momentum next week.</p>
                 <div style="text-align: center; margin-top: 25px;">
-                    <a href="${process.env.CLIENT_URL || 'http://localhost:5173'}/dashboard" style="background-color: #6366f1; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Go to My Dashboard</a>
+                    <a href="${getFrontendUrl()}/dashboard" style="background-color: #6366f1; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Go to My Dashboard</a>
                 </div>
             </div>
         `
@@ -218,7 +222,7 @@ async function sendWeeklyDigest(toEmail, studentName, xpEarned, rank, completedQ
  * Send Password Reset Token
  */
 async function sendPasswordReset(toEmail, resetToken) {
-    const resetUrl = `${process.env.CLIENT_URL || 'http://localhost:5173'}/reset-password?token=${resetToken}`;
+    const resetUrl = `${getFrontendUrl()}/reset-password?token=${resetToken}`;
     const mailOptions = {
         from: `"Personalized Learning Platform" <${process.env.SMTP_USER || 'no-reply@learningplatform.com'}>`,
         to: toEmail,
@@ -266,7 +270,7 @@ async function sendTaApplicationDecision(toEmail, taName, courseTitle, decision)
                         <p style="margin: 5px 0 0 0; color: #047857;">You now have access to view enrolled students, topic progress skill scores, and incoming student doubt requests for this course on your TA Dashboard.</p>
                     </div>
                     <div style="text-align: center; margin: 25px 0;">
-                        <a href="${process.env.CLIENT_URL || 'http://localhost:5173'}" style="background-color: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Go to TA Dashboard</a>
+                        <a href="${getFrontendUrl()}" style="background-color: #10b981; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Go to TA Dashboard</a>
                     </div>
                 ` : `
                     <p style="color: #6b7280;">Thank you for your interest in assisting with this course. You may apply for other open courses from your TA catalog.</p>
@@ -303,7 +307,7 @@ async function sendNewDoubtRequestToTa(toEmail, taName, studentName, courseTitle
                 </div>
                 <p>Please log in to your TA dashboard to schedule a virtual meeting time and link.</p>
                 <div style="text-align: center; margin: 25px 0;">
-                    <a href="${process.env.CLIENT_URL || 'http://localhost:5173'}" style="background-color: #6366f1; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Respond to Request</a>
+                    <a href="${getFrontendUrl()}" style="background-color: #6366f1; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Respond to Request</a>
                 </div>
             </div>
         `

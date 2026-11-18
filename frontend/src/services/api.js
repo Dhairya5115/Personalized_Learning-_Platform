@@ -203,6 +203,82 @@ const api = {
         method: 'POST',
         body: { filename, fileData }
     }),
+    getUploadSignature: () => apiCall('/courses/upload-signature'),
+    uploadToCloudinary: (file, { onProgress, signatureData } = {}) => {
+        return new Promise((resolve, reject) => {
+            const allowedExts = ['.mp4', '.webm', '.ogg', '.mov', '.pdf'];
+            const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
+            if (!allowedExts.includes(ext)) {
+                return reject(new Error(`Invalid file type ${ext}. Allowed formats: ${allowedExts.join(', ')}`));
+            }
+
+            const MAX_SIZE = 100 * 1024 * 1024; // 100MB
+            if (file.size > MAX_SIZE) {
+                return reject(new Error('File exceeds the 100MB maximum upload limit.'));
+            }
+
+            const cloudName = signatureData?.cloudName || import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+            if (!cloudName) {
+                return reject(new Error('Cloud storage (Cloudinary cloud name) is not configured.'));
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            if (signatureData?.isConfigured && signatureData?.signature) {
+                formData.append('api_key', signatureData.apiKey);
+                formData.append('timestamp', signatureData.timestamp);
+                formData.append('signature', signatureData.signature);
+                formData.append('folder', signatureData.folder || 'tailorlearn/materials');
+            } else {
+                const preset = signatureData?.uploadPreset || import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'tailorlearn_uploads';
+                formData.append('upload_preset', preset);
+            }
+
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', `https://api.cloudinary.com/v1_1/${cloudName}/auto/upload`);
+
+            xhr.upload.onprogress = (e) => {
+                if (e.lengthComputable && onProgress) {
+                    const percent = Math.round((e.loaded / e.total) * 100);
+                    onProgress(percent);
+                }
+            };
+
+            xhr.onload = () => {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    try {
+                        const response = JSON.parse(xhr.responseText);
+                        resolve({
+                            fileUrl: response.secure_url || response.url,
+                            publicId: response.public_id,
+                            bytes: response.bytes,
+                            format: response.format
+                        });
+                    } catch {
+                        reject(new Error('Failed to parse Cloudinary response.'));
+                    }
+                } else {
+                    let errMsg = 'Direct cloud upload failed.';
+                    try {
+                        const errRes = JSON.parse(xhr.responseText);
+                        if (errRes.error?.message) errMsg = errRes.error.message;
+                    } catch {}
+                    reject(new Error(errMsg));
+                }
+            };
+
+            xhr.onerror = () => {
+                reject(new Error('Network connection error during cloud upload.'));
+            };
+
+            xhr.ontimeout = () => {
+                reject(new Error('Cloud upload timed out. Please check your internet connection.'));
+            };
+
+            xhr.send(formData);
+        });
+    },
     getTeacherStudentProgress: () => apiCall('/courses/teacher/student-progress'),
 
     // Payments

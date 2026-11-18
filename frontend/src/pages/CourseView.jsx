@@ -3,10 +3,11 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import { subscribeToCourseEvents } from '../services/courseEvents';
+import { getMediaInfo, getMediaUrl } from '../utils/media';
 import { 
     ArrowLeft, BookOpen, Plus, ClipboardList, Play, FileText, 
     Trash2, Sparkles, CheckCircle2, ChevronDown, ChevronUp, AlertCircle, HelpCircle,
-    Lock, Unlock, CreditCard, Bookmark, Eye
+    Lock, Unlock, CreditCard, Bookmark, Eye, AlertTriangle
 } from 'lucide-react';
 
 function TopicNode({ 
@@ -335,54 +336,94 @@ function TopicNode({
         const file = e.target.files[0];
         if (!file) return;
 
+        // 1. Client-side file type validation
+        const allowedExts = ['.mp4', '.webm', '.ogg', '.mov', '.pdf'];
+        const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
+        if (!allowedExts.includes(ext)) {
+            setMatError(`Invalid file format "${ext}". Please upload video (.mp4, .webm, .mov) or PDF document (.pdf).`);
+            return;
+        }
+
+        // 2. Client-side file size validation (100MB max)
+        const MAX_SIZE = 100 * 1024 * 1024;
+        if (file.size > MAX_SIZE) {
+            setMatError('File exceeds the 100MB maximum upload limit. Please compress or choose a smaller file.');
+            return;
+        }
+
         setUploadingFile(true);
-        setUploadProgress(15);
+        setUploadProgress(10);
         setMatError('');
 
+        // Pre-fill material title and auto-select type
+        if (!materialTitle) {
+            setMaterialTitle(file.name.replace(/\.[^/.]+$/, ""));
+        }
+        if (file.type.includes('pdf') || ext === '.pdf') {
+            setMaterialType('PDF');
+        } else {
+            setMaterialType('VIDEO');
+        }
+
         try {
-            const reader = new FileReader();
-            reader.readAsDataURL(file);
-            reader.onprogress = (event) => {
-                if (event.lengthComputable) {
-                    const percentComplete = Math.round((event.loaded / event.total) * 40) + 15;
-                    setUploadProgress(percentComplete);
-                }
-            };
-            reader.onload = async () => {
-                try {
-                    setUploadProgress(60);
-                    const base64Data = reader.result;
-                    const res = await api.uploadLocal(file.name, base64Data);
-                    
-                    setUploadProgress(100);
-                    setMaterialUrl(res.fileUrl);
-                    
-                    if (!materialTitle) {
-                        setMaterialTitle(file.name.replace(/\.[^/.]+$/, ""));
-                    }
-
-                    if (file.type.includes('pdf') || file.name.endsWith('.pdf')) {
-                        setMaterialType('PDF');
-                    } else if (file.type.startsWith('video/') || file.name.endsWith('.mp4') || file.name.endsWith('.mov') || file.name.endsWith('.avi') || file.name.endsWith('.mkv')) {
-                        setMaterialType('VIDEO');
-                    }
-
+            // Attempt direct browser-to-cloud upload to avoid streaming large files through Render
+            let cloudUploaded = false;
+            try {
+                const sigRes = await api.getUploadSignature();
+                const cloudName = sigRes?.cloudName || import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
+                
+                if (cloudName) {
+                    const uploadRes = await api.uploadToCloudinary(file, {
+                        signatureData: sigRes,
+                        onProgress: (percent) => setUploadProgress(percent)
+                    });
+                    setMaterialUrl(uploadRes.fileUrl);
+                    cloudUploaded = true;
                     if (window.showToast) {
-                        window.showToast('File processed and ready to publish!', 'success');
+                        window.showToast('File uploaded to cloud storage successfully!', 'success');
                     }
-                } catch (err) {
-                    setMatError(err.message || 'Failed to save upload payload.');
-                } finally {
-                    setUploadingFile(false);
                 }
-            };
-            reader.onerror = () => {
-                setUploadingFile(false);
-                setMatError('Error reading bytes from local file input.');
-            };
+            } catch (cloudErr) {
+                console.warn('Direct cloud upload unavailable or failed, falling back to local storage:', cloudErr.message);
+            }
+
+            // Fallback for local development if cloud storage is not configured
+            if (!cloudUploaded) {
+                setUploadProgress(30);
+                const reader = new FileReader();
+                reader.readAsDataURL(file);
+                reader.onprogress = (event) => {
+                    if (event.lengthComputable) {
+                        const percentComplete = Math.round((event.loaded / event.total) * 40) + 30;
+                        setUploadProgress(percentComplete);
+                    }
+                };
+                reader.onload = async () => {
+                    try {
+                        setUploadProgress(80);
+                        const base64Data = reader.result;
+                        const res = await api.uploadLocal(file.name, base64Data);
+                        setUploadProgress(100);
+                        setMaterialUrl(res.fileUrl);
+                        if (window.showToast) {
+                            window.showToast('File processed locally!', 'success');
+                        }
+                    } catch (err) {
+                        setMatError(err.message || 'Failed to upload file.');
+                    } finally {
+                        setUploadingFile(false);
+                    }
+                };
+                reader.onerror = () => {
+                    setUploadingFile(false);
+                    setMatError('Error reading file data.');
+                };
+                return;
+            }
         } catch (err) {
+            setMatError(err.message || 'Failed to upload file.');
+        } finally {
             setUploadingFile(false);
-            setMatError('Local file reader system error: ' + err.message);
         }
     };
 
@@ -1338,7 +1379,12 @@ export default function CourseView({ course: courseProp, onBack: onBackProp, onS
     const [success, setSuccess] = useState(false);
 
     const [activeMaterial, setActiveMaterial] = useState(null);
+    const [mediaPlaybackError, setMediaPlaybackError] = useState(false);
     const [showDeleteCourseModal, setShowDeleteCourseModal] = useState(false);
+
+    useEffect(() => {
+        setMediaPlaybackError(false);
+    }, [activeMaterial]);
 
     // Track expanded topic cards so real-time updates don't reset accordion state
     const [expandedTopicIds, setExpandedTopicIds] = useState(() => new Set());
@@ -1777,26 +1823,104 @@ export default function CourseView({ course: courseProp, onBack: onBackProp, onS
                         </div>
 
                         {/* Modal Body */}
-                        <div className="flex-1 p-6 bg-slate-950 flex flex-col justify-center items-center overflow-hidden">
-                            {activeMaterial.type === 'VIDEO' ? (
-                                <video 
-                                    src={activeMaterial.file_url} 
-                                    controls 
-                                    autoPlay
-                                    className="w-full h-full rounded-lg object-contain shadow-md"
-                                />
-                            ) : (
-                                <div className="w-full h-full flex flex-col">
-                                    <iframe 
-                                        src={activeMaterial.file_url}
-                                        className="w-full h-full border-none rounded-lg bg-white" 
-                                        title={activeMaterial.title}
-                                    />
-                                    <p className="text-xs text-slate-450 dark:text-slate-500 mt-3 text-center">
-                                        Trouble loading document preview? <a href={activeMaterial.file_url} target="_blank" rel="noopener noreferrer" className="text-indigo-400 font-bold hover:underline">Open raw PDF file in new browser tab</a>
-                                    </p>
-                                </div>
-                            )}
+                        <div className="flex-1 p-4 sm:p-6 bg-slate-950 flex flex-col justify-center items-center overflow-hidden">
+                            {(() => {
+                                const mediaInfo = getMediaInfo(activeMaterial.file_url);
+
+                                // 1. Localhost fallback when viewed in production
+                                if (mediaInfo.isLocalhostUnavailable) {
+                                    return (
+                                        <div className="w-full max-w-lg p-6 sm:p-8 bg-slate-900/90 border border-amber-500/40 rounded-2xl text-center space-y-4 shadow-xl">
+                                            <div className="w-14 h-14 mx-auto rounded-full bg-amber-500/10 text-amber-400 flex items-center justify-center">
+                                                <AlertTriangle size={28} />
+                                            </div>
+                                            <div className="space-y-1">
+                                                <h4 className="text-base font-bold text-white">File Unavailable</h4>
+                                                <p className="text-xs text-slate-300 leading-relaxed">
+                                                    This file was uploaded to a local environment (<code>localhost</code>) and is not accessible online. 
+                                                    The course instructor needs to re-upload this file to cloud storage.
+                                                </p>
+                                            </div>
+                                            <div className="pt-2 text-[11px] text-slate-400">
+                                                Material: <span className="text-slate-200 font-semibold">{activeMaterial.title}</span> ({activeMaterial.type})
+                                            </div>
+                                        </div>
+                                    );
+                                }
+
+                                // 2. Video Material Playback
+                                if (activeMaterial.type === 'VIDEO') {
+                                    return (
+                                        <div className="relative w-full h-full max-w-5xl mx-auto flex items-center justify-center bg-black rounded-xl overflow-hidden shadow-2xl">
+                                            {mediaPlaybackError ? (
+                                                <div className="p-6 text-center space-y-3">
+                                                    <AlertTriangle className="mx-auto text-amber-400" size={32} />
+                                                    <p className="text-sm text-slate-200">Unable to load or stream video file.</p>
+                                                    <p className="text-xs text-slate-400 max-w-md mx-auto">
+                                                        The media server may be temporarily unreachable, or the video format is unsupported.
+                                                    </p>
+                                                    <button 
+                                                        onClick={() => setMediaPlaybackError(false)} 
+                                                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold transition-colors"
+                                                    >
+                                                        Retry Playback
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <video 
+                                                    key={mediaInfo.url}
+                                                    src={mediaInfo.url} 
+                                                    controls 
+                                                    preload="metadata"
+                                                    autoPlay
+                                                    onError={() => setMediaPlaybackError(true)}
+                                                    className="w-full h-full object-contain"
+                                                />
+                                            )}
+                                        </div>
+                                    );
+                                }
+
+                                // 3. PDF / Document Material
+                                return (
+                                    <div className="w-full h-full flex flex-col">
+                                        {mediaPlaybackError ? (
+                                            <div className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-4">
+                                                <AlertTriangle className="text-amber-400" size={32} />
+                                                <p className="text-sm text-slate-200">Unable to render document preview inside browser.</p>
+                                                <a 
+                                                    href={mediaInfo.url} 
+                                                    target="_blank" 
+                                                    rel="noopener noreferrer" 
+                                                    className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold transition-colors"
+                                                >
+                                                    Open / Download PDF in New Tab
+                                                </a>
+                                            </div>
+                                        ) : (
+                                            <>
+                                                <iframe 
+                                                    src={mediaInfo.url}
+                                                    className="w-full h-full border-none rounded-lg bg-white" 
+                                                    title={activeMaterial.title}
+                                                    onError={() => setMediaPlaybackError(true)}
+                                                />
+                                                <p className="text-xs text-slate-400 dark:text-slate-500 mt-3 text-center">
+                                                    Trouble loading document preview?{' '}
+                                                    <a 
+                                                        href={mediaInfo.url} 
+                                                        target="_blank" 
+                                                        rel="noopener noreferrer" 
+                                                        className="text-indigo-400 font-bold hover:underline"
+                                                    >
+                                                        Open raw PDF file in new browser tab
+                                                    </a>
+                                                </p>
+                                            </>
+                                        )}
+                                    </div>
+                                );
+                            })()}
                         </div>
 
                         {/* Modal Footer */}

@@ -19,18 +19,33 @@ const courseEventsService = require('./services/course_events_service');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Enable CORS with support for multiple domains, comma-separated CLIENT_URL, or wildcards
-const configuredOrigins = process.env.CLIENT_URL 
-    ? process.env.CLIENT_URL.split(',').map(s => s.trim().replace(/\/$/, '')) 
-    : ['http://localhost:5173'];
+// Configure CORS with allowed origins from environment
+const isProduction = process.env.NODE_ENV === 'production';
+const envOrigins = (process.env.FRONTEND_URL || process.env.CLIENT_URL || '')
+    .split(',')
+    .map(s => s.trim().replace(/\/$/, ''))
+    .filter(Boolean);
+
+const allowedOrigins = [
+    'https://tailorlearn.vercel.app',
+    'https://personalized-learning-platform-ten.vercel.app',
+    ...envOrigins
+];
+
+// In non-production environments only, allow local dev servers
+if (!isProduction) {
+    allowedOrigins.push('http://localhost:5173', 'http://127.0.0.1:5173', 'http://localhost:5000');
+}
 
 const corsOptions = {
     origin: (origin, callback) => {
-        if (!origin || configuredOrigins.includes('*') || configuredOrigins.includes(origin)) {
-            callback(null, true);
-        } else {
-            callback(null, true); // Allow all origins for production flexibility
+        if (!origin || allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
+            return callback(null, true);
         }
+        if (!isProduction && /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+            return callback(null, true);
+        }
+        callback(new Error(`Origin ${origin} not allowed by CORS`));
     },
     credentials: true,
     optionsSuccessStatus: 200
@@ -80,8 +95,8 @@ app.use((err, req, res, next) => {
 
 const server = app.listen(PORT, () => {
     console.log(`====================================================`);
-    console.log(`  Server booting on port: ${PORT} in ${process.env.NODE_ENV || 'development'} mode`);
-    console.log(`  Health Check: http://localhost:${PORT}/health`);
+    console.log(`  TailorLearn backend running on port: ${PORT} [${process.env.NODE_ENV || 'development'}]`);
+    console.log(`  Allowed Origins: ${allowedOrigins.join(', ')}`);
     console.log(`====================================================`);
     
     // Boot the background notification scheduler

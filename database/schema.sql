@@ -44,6 +44,7 @@ CREATE TABLE payments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     student_id UUID REFERENCES users(id) ON DELETE CASCADE,
     course_id UUID REFERENCES courses(id) ON DELETE CASCADE,
+    material_id UUID REFERENCES materials(id) ON DELETE CASCADE,
     razorpay_order_id VARCHAR(255) UNIQUE NOT NULL,
     razorpay_payment_id VARCHAR(255),
     razorpay_signature VARCHAR(255),
@@ -69,6 +70,8 @@ CREATE TABLE materials (
     title VARCHAR(255) NOT NULL,
     type VARCHAR(50) NOT NULL, -- 'PDF' or 'VIDEO'
     file_url TEXT NOT NULL,
+    is_premium BOOLEAN DEFAULT FALSE,
+    price NUMERIC(10, 2) DEFAULT 0.00,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -78,6 +81,7 @@ CREATE TABLE quizzes (
     topic_id UUID REFERENCES topics(id) ON DELETE CASCADE,
     title VARCHAR(255) NOT NULL,
     passing_score INTEGER DEFAULT 50,
+    is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -207,13 +211,15 @@ CREATE TABLE ta_applications (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     ta_id UUID REFERENCES users(id) ON DELETE CASCADE,
     course_id UUID REFERENCES courses(id) ON DELETE CASCADE,
+    teacher_id UUID REFERENCES users(id) ON DELETE SET NULL,
     full_name VARCHAR(255),
     contact VARCHAR(50),
     qualification VARCHAR(255),
     motivation TEXT,
     experience TEXT,
+    availability TEXT,
     resume_link TEXT,
-    status VARCHAR(20) DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED')),
+    status VARCHAR(20) DEFAULT 'PENDING' CHECK (status IN ('PENDING', 'APPROVED', 'REJECTED', 'REMOVED')),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     reviewed_at TIMESTAMP WITH TIME ZONE,
     reviewed_by UUID REFERENCES users(id) ON DELETE SET NULL

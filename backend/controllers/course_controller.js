@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { recalculateProgress } = require('../engines/progress_engine');
 const courseEventsService = require('../services/course_events_service');
+const storageService = require('../services/storage_service');
 
 /**
  * Get all courses
@@ -346,6 +347,16 @@ async function createMaterial(req, res) {
         return res.status(400).json({ error: 'Title, type (PDF/VIDEO), and fileUrl are required' });
     }
 
+    const normalizedType = (type || '').toUpperCase();
+    if (!['VIDEO', 'PDF'].includes(normalizedType)) {
+        return res.status(400).json({ error: 'Type must be VIDEO or PDF' });
+    }
+
+    // In production, reject localhost URLs to ensure durable cloud storage
+    if (process.env.NODE_ENV === 'production' && (fileUrl.includes('localhost') || fileUrl.includes('127.0.0.1'))) {
+        return res.status(400).json({ error: 'Localhost URLs are not allowed in production. Please upload files to cloud storage.' });
+    }
+
     const materialPrice = isPremium ? (price ? parseFloat(price) : 49.00) : 0.00;
     const materialIsPremium = !!isPremium;
 
@@ -457,7 +468,7 @@ async function completeMaterial(req, res) {
 }
 
 /**
- * Handle direct local file upload via base64 payloads
+ * Handle direct local file upload via base64 payloads (fallback for local development)
  */
 async function uploadLocalFile(req, res) {
     const { filename, fileData } = req.body;
@@ -466,7 +477,23 @@ async function uploadLocalFile(req, res) {
         return res.status(400).json({ error: 'Filename and base64 fileData are required' });
     }
 
+    // Enforce allowed file types
+    const allowedExts = ['.mp4', '.webm', '.ogg', '.mov', '.pdf'];
+    const ext = path.extname(filename).toLowerCase();
+    if (!allowedExts.includes(ext)) {
+        return res.status(400).json({ error: `File type ${ext} is not allowed. Allowed types: ${allowedExts.join(', ')}` });
+    }
+
     try {
+        const base64Content = fileData.split(';base64,').pop();
+        const buffer = Buffer.from(base64Content, 'base64');
+
+        // Enforce max size (100MB)
+        const MAX_SIZE = 100 * 1024 * 1024;
+        if (buffer.length > MAX_SIZE) {
+            return res.status(400).json({ error: 'File size exceeds maximum allowed limit of 100MB' });
+        }
+
         // Create directory public/uploads if not exists
         const dir = path.join(__dirname, '../public/uploads');
         if (!fs.existsSync(dir)){
@@ -474,18 +501,51 @@ async function uploadLocalFile(req, res) {
         }
 
         // Clean filename to prevent path traversal
-        const safeName = Date.now() + '_' + path.basename(filename);
+        const safeName = Date.now() + '_' + path.basename(filename).replace(/[^a-zA-Z0-9._-]/g, '_');
         const filePath = path.join(dir, safeName);
 
-        // Convert base64 data to buffer and write
-        const base64Content = fileData.split(';base64,').pop();
-        fs.writeFileSync(filePath, base64Content, { encoding: 'base64' });
+        fs.writeFileSync(filePath, buffer);
 
-        const fileUrl = `http://localhost:5000/uploads/${safeName}`;
+        // Return relative host-agnostic URL path, NEVER hardcoded localhost
+        const fileUrl = `/uploads/${safeName}`;
         return res.json({ success: true, fileUrl });
     } catch (err) {
         console.error('Local file upload error:', err.message);
         return res.status(500).json({ error: 'Failed to write local file' });
+    }
+}
+
+/**
+ * Generate signed upload parameters or return client storage configuration
+ * for direct browser-to-Cloudinary upload.
+ */
+async function getUploadSignature(req, res) {
+    try {
+        const sig = storageService.generateUploadSignature({
+            folder: 'tailorlearn/materials'
+        });
+
+        if (!sig) {
+            const config = storageService.getClientStorageConfig();
+            return res.json({
+                success: true,
+                isConfigured: false,
+                provider: 'cloudinary',
+                cloudName: config.cloudName,
+                uploadPreset: config.uploadPreset,
+                message: 'Cloudinary server credentials not configured. Use client upload preset or local fallback.'
+            });
+        }
+
+        return res.json({
+            success: true,
+            isConfigured: true,
+            provider: 'cloudinary',
+            ...sig
+        });
+    } catch (err) {
+        console.error('Upload signature generation error:', err.message);
+        return res.status(500).json({ error: 'Failed to generate storage upload signature' });
     }
 }
 
@@ -841,6 +901,7 @@ module.exports = {
     deleteMaterial,
     completeMaterial,
     uploadLocalFile,
+    getUploadSignature,
     getTeacherStudentProgress,
     deleteCourse,
     deleteTopic,

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../services/api';
+import { getMediaInfo } from '../utils/media';
 import { BookOpen, Star, RefreshCw, Layers, CheckCircle2, ChevronRight, FileText, Play } from 'lucide-react';
 
 export default function SpacedRepetition() {
@@ -140,7 +141,15 @@ export default function SpacedRepetition() {
                                         Type: <strong className="text-[#00262b] font-bold">{reviews[currentIndex].material_type}</strong>
                                     </p>
                                     <p className="text-xs text-[#52716c] truncate max-w-sm mx-auto">
-                                        Reference URL: <a href={reviews[currentIndex].file_url} target="_blank" rel="noopener noreferrer" className="text-[#04c5e7] font-bold hover:underline">{reviews[currentIndex].file_url}</a>
+                                        {(() => {
+                                            const info = getMediaInfo(reviews[currentIndex].file_url);
+                                            if (info.isLocalhostUnavailable) {
+                                                return <span className="text-amber-500 font-medium">Reference file unavailable (local file)</span>;
+                                            }
+                                            return (
+                                                <>Reference URL: <a href={info.url} target="_blank" rel="noopener noreferrer" className="text-[#04c5e7] font-bold hover:underline">{info.url}</a></>
+                                            );
+                                        })()}
                                     </p>
                                 </div>
                                 <p className="text-xs text-[#52716c]">
