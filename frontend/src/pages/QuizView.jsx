@@ -341,7 +341,7 @@ export default function QuizView({ quiz: quizProp, onBack: onBackProp }) {
             />
 
             {/* Header bar */}
-            <div className="flex items-center justify-between bg-[#ffffff] dark:bg-slate-900 border border-[#edebe3] dark:border-slate-800 p-4 rounded-2xl shadow-sm">
+            <div className="flex items-center justify-between bg-[#ffffff] dark:bg-slate-900 border border-[#edebe3] dark:border-slate-800 p-4 rounded-2xl shadow-sm sticky top-2 z-10 backdrop-blur-md">
                 <button
                     onClick={handleExitEarly}
                     className="btn-ghost !text-xs !py-2 !px-4 inline-flex items-center gap-2"
@@ -592,14 +592,14 @@ export default function QuizView({ quiz: quizProp, onBack: onBackProp }) {
                                 <button
                                     key={opt.id}
                                     onClick={() => setSelectedOptionId(opt.id)}
-                                    className={`w-full p-4 rounded-2xl border text-left flex items-center justify-between transition-all duration-200 ${
+                                    className={`w-full p-4 rounded-2xl border text-left flex items-center justify-between transition-all duration-200 min-h-[52px] select-none ${
                                         isSelected
                                             ? 'bg-[#f3f1ed] dark:bg-slate-800 border-[#00262b] dark:border-[#04c5e7] text-[#00262b] dark:text-slate-100 shadow-sm'
                                             : 'bg-[#ffffff] dark:bg-slate-900 border-[#edebe3] dark:border-slate-800 text-[#00262b] dark:text-slate-200 hover:border-[#04c5e7]'
                                     }`}
                                 >
                                     <div className="flex items-center gap-3">
-                                        <span className={`w-8 h-8 rounded-2xl flex items-center justify-center text-xs font-bold ${
+                                        <span className={`w-8 h-8 rounded-2xl flex items-center justify-center text-xs font-bold shrink-0 ${
                                             isSelected
                                                 ? 'bg-[#00262b] text-[#04c5e7]'
                                                 : 'bg-[#f9f8f6] dark:bg-slate-800 text-[#00262b] dark:text-slate-200 border border-[#edebe3] dark:border-slate-700'
@@ -608,7 +608,7 @@ export default function QuizView({ quiz: quizProp, onBack: onBackProp }) {
                                         </span>
                                         <span className="text-xs md:text-sm font-semibold">{opt.text}</span>
                                     </div>
-                                    {isSelected && <Check size={18} className="text-[#00262b] dark:text-[#04c5e7]" />}
+                                    {isSelected && <Check size={18} className="text-[#00262b] dark:text-[#04c5e7] shrink-0" />}
                                 </button>
                             );
                         })}
@@ -619,7 +619,7 @@ export default function QuizView({ quiz: quizProp, onBack: onBackProp }) {
                         <button
                             onClick={handleNext}
                             disabled={!selectedOptionId || submitting}
-                            className="btn-primary !px-6 !py-3 !text-xs disabled:opacity-40"
+                            className="btn-primary !px-6 !py-3 !text-xs disabled:opacity-40 min-h-[44px]"
                         >
                             {submitting ? 'Submitting...' : 'Next Question →'}
                         </button>

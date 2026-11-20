@@ -110,14 +110,14 @@ export default function Dashboard({ onSelectCourse: onSelectCourseProp, onGoToCa
             tempDate.setDate(tempDate.getDate() + 1);
         }
         return (
-            <div className="bg-[#ffffff] border border-[#edebe3] rounded-2xl p-6 shadow-sm h-full flex flex-col">
-                <div className="flex items-center gap-3 mb-6">
+            <div className="bg-[#ffffff] border border-[#edebe3] rounded-2xl p-4 sm:p-6 shadow-sm h-full flex flex-col max-w-full overflow-hidden">
+                <div className="flex items-center gap-3 mb-4 sm:mb-6">
                     <div className="p-2 rounded-xl bg-[#f9f8f6] text-[#00262b]">
                         <LineChart size={20} />
                     </div>
-                    <h2 className="text-lg font-bold text-[#00262b]">Study Activity Grid</h2>
+                    <h2 className="text-base sm:text-lg font-bold text-[#00262b]">Study Activity Grid</h2>
                 </div>
-                <div className="flex gap-1.5 overflow-x-auto py-1 flex-1">
+                <div className="flex gap-1.5 overflow-x-auto py-1 flex-1 table-responsive-container">
                     <div className="grid grid-flow-col grid-rows-7 gap-1">
                         {gridCells.map((cell, idx) => {
                             let c = 'bg-[#f3f1ed]';
@@ -131,9 +131,9 @@ export default function Dashboard({ onSelectCourse: onSelectCourseProp, onGoToCa
                         })}
                     </div>
                 </div>
-                <div className="flex items-center justify-between mt-4 text-[10px] font-bold text-[#52716c] uppercase tracking-wider">
-                    <span>90-day study frequency heatmap</span>
-                    <div className="flex items-center gap-1.5 ml-8">
+                <div className="flex flex-wrap items-center justify-between gap-2 mt-4 text-[10px] font-bold text-[#52716c] uppercase tracking-wider">
+                    <span>90-day frequency</span>
+                    <div className="flex items-center gap-1.5">
                         <span>Less</span>
                         <div className="w-2.5 h-2.5 rounded-[3px] bg-[#f3f1ed]" />
                         <div className="w-2.5 h-2.5 rounded-[3px] bg-[#04c5e7]/40" />
@@ -154,13 +154,13 @@ export default function Dashboard({ onSelectCourse: onSelectCourseProp, onGoToCa
     );
 
     return (
-        <div className="space-y-10 max-w-6xl mx-auto">
+        <div className="space-y-8 sm:space-y-10 max-w-6xl mx-auto">
             {/* Header */}
             <div>
-                <h1 className="text-4xl font-extrabold tracking-tight text-[#00262b]">
+                <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight text-[#00262b]">
                     Welcome back, {user?.firstName || user?.first_name || user?.email || 'User'}!
                 </h1>
-                <p className="mt-2 text-sm font-medium text-[#52716c]">
+                <p className="mt-2 text-xs sm:text-sm font-medium text-[#52716c]">
                     {user?.role === 'STUDENT'
                         ? 'Track your daily study goals and see your courses.'
                         : user?.role === 'TA'
@@ -174,32 +174,32 @@ export default function Dashboard({ onSelectCourse: onSelectCourseProp, onGoToCa
                     {/* KPI Cards + Heatmap */}
                     <div className="flex flex-col lg:flex-row gap-6 items-stretch">
                         <div className="flex-1 space-y-4">
-                            <div className="bg-[#ffffff] border border-[#edebe3] p-7 rounded-2xl flex items-center gap-5 shadow-sm">
+                            <div className="bg-[#ffffff] border border-[#edebe3] p-5 sm:p-7 rounded-2xl flex items-center gap-5 shadow-sm">
                                 <div className="w-14 h-14 bg-[#00262b] rounded-2xl shadow-sm flex items-center justify-center text-[#04c5e7] flex-shrink-0">
                                     <Trophy size={26} />
                                 </div>
                                 <div>
                                     <p className="text-[11px] font-bold text-[#52716c] uppercase tracking-widest mb-1">Total Points</p>
-                                    <p className="text-3xl font-extrabold text-[#00262b]">
+                                    <p className="text-2xl sm:text-3xl font-extrabold text-[#00262b]">
                                         {user.xpPoints || 0}
                                         <span className="text-base font-bold text-[#52716c] ml-1.5">XP</span>
                                     </p>
                                 </div>
                             </div>
-                            <div className="bg-[#ffffff] border border-[#edebe3] p-7 rounded-2xl flex items-center gap-5 shadow-sm">
+                            <div className="bg-[#ffffff] border border-[#edebe3] p-5 sm:p-7 rounded-2xl flex items-center gap-5 shadow-sm">
                                 <div className="w-14 h-14 bg-[#f9f8f6] rounded-2xl flex items-center justify-center text-[#00262b] border border-[#e1ddd1] flex-shrink-0">
                                     <BookOpen size={26} />
                                 </div>
                                 <div>
                                     <p className="text-[11px] font-bold text-[#52716c] uppercase tracking-widest mb-1">Courses</p>
-                                    <p className="text-3xl font-extrabold text-[#00262b]">
+                                    <p className="text-2xl sm:text-3xl font-extrabold text-[#00262b]">
                                         {enrolled.length}
                                         <span className="text-base font-bold text-[#52716c] ml-1.5">Joined</span>
                                     </p>
                                 </div>
                             </div>
                         </div>
-                        <div className="w-full lg:w-fit flex-shrink-0">
+                        <div className="w-full lg:w-fit flex-shrink-0 min-w-0">
                             {renderHeatmap()}
                         </div>
                     </div>
@@ -256,8 +256,8 @@ export default function Dashboard({ onSelectCourse: onSelectCourseProp, onGoToCa
                 /* TA Dashboard View */
                 <div className="space-y-8">
                     {/* Quick Stats Grid */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                        <div className="bg-[#ffffff] border border-[#edebe3] p-6 rounded-2xl flex items-center gap-4 shadow-sm">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                        <div className="bg-[#ffffff] border border-[#edebe3] p-5 sm:p-6 rounded-2xl flex items-center gap-4 shadow-sm">
                             <div className="w-12 h-12 rounded-2xl bg-[#f9f8f6] text-[#00262b] border border-[#e1ddd1] flex items-center justify-center">
                                 <Users size={24} />
                             </div>
@@ -269,7 +269,7 @@ export default function Dashboard({ onSelectCourse: onSelectCourseProp, onGoToCa
                             </div>
                         </div>
 
-                        <div className="bg-[#ffffff] border border-[#edebe3] p-6 rounded-2xl flex items-center gap-4 shadow-sm">
+                        <div className="bg-[#ffffff] border border-[#edebe3] p-5 sm:p-6 rounded-2xl flex items-center gap-4 shadow-sm">
                             <div className="w-12 h-12 rounded-2xl bg-[#00262b] text-[#04c5e7] flex items-center justify-center">
                                 <BookOpen size={24} />
                             </div>
@@ -281,7 +281,7 @@ export default function Dashboard({ onSelectCourse: onSelectCourseProp, onGoToCa
                             </div>
                         </div>
 
-                        <div className="bg-[#ffffff] border border-[#edebe3] p-6 rounded-2xl flex items-center gap-4 shadow-sm">
+                        <div className="bg-[#ffffff] border border-[#edebe3] p-5 sm:p-6 rounded-2xl flex items-center gap-4 shadow-sm sm:col-span-2 lg:col-span-1">
                             <div className="w-12 h-12 rounded-2xl bg-[#f3f1ed] text-[#d64000] border border-[#e1ddd1] flex items-center justify-center">
                                 <HelpCircle size={24} />
                             </div>
@@ -296,8 +296,8 @@ export default function Dashboard({ onSelectCourse: onSelectCourseProp, onGoToCa
 
                     {/* Assigned Courses Roster */}
                     <div className="space-y-4">
-                        <div className="flex items-center justify-between">
-                            <h2 className="text-2xl font-extrabold text-[#00262b] flex items-center gap-2">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <h2 className="text-xl sm:text-2xl font-extrabold text-[#00262b] flex items-center gap-2">
                                 <BookOpen size={22} className="text-[#04c5e7]" />
                                 <span>My Assigned Courses</span>
                             </h2>
@@ -314,16 +314,16 @@ export default function Dashboard({ onSelectCourse: onSelectCourseProp, onGoToCa
                                 You are not assigned to any courses yet. Apply for open courses from the TA Catalog.
                             </div>
                         ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 {enrolled.map(course => (
-                                    <div key={course.id} className="bg-[#ffffff] border border-[#edebe3] rounded-2xl p-5 flex items-center justify-between shadow-sm">
+                                    <div key={course.id} className="bg-[#ffffff] border border-[#edebe3] rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
                                         <div>
                                             <h3 className="font-bold text-[#00262b] text-base">{course.title}</h3>
                                             <p className="text-xs text-[#52716c] mt-1 line-clamp-1">{course.description || 'Course Assistant'}</p>
                                         </div>
                                         <button 
                                             onClick={() => navigate('/ta-assigned')}
-                                            className="btn-primary !text-xs !py-2 !px-4"
+                                            className="btn-primary !text-xs !py-2 !px-4 shrink-0"
                                         >
                                             View Students
                                         </button>
@@ -408,7 +408,7 @@ export default function Dashboard({ onSelectCourse: onSelectCourseProp, onGoToCa
                                     Active TAs assisting with your courses and distinct student counts handled.
                                 </p>
                             </div>
-                            <div className="flex items-center gap-3">
+                            <div className="flex flex-wrap items-center gap-3">
                                 <button
                                     onClick={handleSort}
                                     className="btn-ghost !text-xs !py-2 !px-4 flex items-center gap-1.5"
@@ -430,8 +430,8 @@ export default function Dashboard({ onSelectCourse: onSelectCourseProp, onGoToCa
                                 No active TAs assigned to your courses yet. Approve pending applications from the TA Review page.
                             </div>
                         ) : (
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-left text-xs text-[#00262b]">
+                            <div className="table-responsive-container overflow-x-auto">
+                                <table className="w-full text-left text-xs text-[#00262b] min-w-[500px]">
                                     <thead className="bg-[#f9f8f6] text-[#52716c] uppercase text-[10px] font-bold tracking-wider border-b border-[#edebe3]">
                                         <tr>
                                             <th className="p-3">TA Name & Email</th>

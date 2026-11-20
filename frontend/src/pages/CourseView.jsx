@@ -1706,7 +1706,7 @@ export default function CourseView({ course: courseProp, onBack: onBackProp, onS
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 items-start">
                 
                 {/* Topics Accordion List */}
-                <div className="lg:col-span-3 space-y-4j">
+                <div className="lg:col-span-3 space-y-4">
                     <h2 className="text-sm font-bold uppercase tracking-wider text-[#52716c] mb-2 flex items-center gap-2">
                         <ClipboardList size={16} className="text-[#04c5e7]" />
                         <span>Curriculum Outline</span>
@@ -1807,8 +1807,8 @@ export default function CourseView({ course: courseProp, onBack: onBackProp, onS
 
             {/* Embedded Premium Material Viewer Modal */}
             {activeMaterial && (
-                <div className="fixed inset-0 bg-slate-950/80 dark:bg-slate-950/90 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
-                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-7xl h-[92vh] flex flex-col overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-200">
+                <div className="fixed inset-0 bg-slate-950/80 dark:bg-slate-950/90 backdrop-blur-sm z-[9999] flex items-center justify-center p-2 sm:p-4">
+                    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl w-full max-w-7xl h-[92vh] max-h-[92dvh] flex flex-col overflow-hidden shadow-2xl animate-in fade-in zoom-in duration-200">
                         {/* Modal Header */}
                         <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800/80 flex justify-between items-center bg-slate-50 dark:bg-slate-900">
                             <h3 className="font-bold text-sm text-slate-800 dark:text-slate-250 truncate pr-6">

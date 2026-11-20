@@ -7,6 +7,7 @@ export default function StudyPlanner() {
     const [hasPlan, setHasPlan] = useState(false);
     const [loading, setLoading] = useState(true);
     const [showResetModal, setShowResetModal] = useState(false);
+    const [selectedMobileDay, setSelectedMobileDay] = useState(0); // 0-6 or 'ALL'
 
     // Form inputs
     const [goal, setGoal] = useState('');
@@ -163,14 +164,94 @@ export default function StudyPlanner() {
                     </div>
 
                     {/* Google Calendar-like column schedule */}
-                    <div>
-                        <h3 className="font-extrabold text-[#00262b] mb-4 flex items-center gap-2 text-base">
-                            <Calendar size={18} className="text-[#04c5e7]" />
-                            <span>Your 7-Day Study Calendar</span>
-                        </h3>
+                    <div className="space-y-4">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                            <h3 className="font-extrabold text-[#00262b] flex items-center gap-2 text-base">
+                                <Calendar size={18} className="text-[#04c5e7]" />
+                                <span>Your 7-Day Study Calendar</span>
+                            </h3>
 
-                        {/* Calendar Columns Grid */}
-                        <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
+                            {/* Mobile Day / Agenda Switcher */}
+                            <div className="flex md:hidden items-center gap-1.5 overflow-x-auto pb-1 tabs-scrollable">
+                                <button
+                                    onClick={() => setSelectedMobileDay('ALL')}
+                                    className={`px-3 py-1.5 rounded-[94px] text-xs font-bold whitespace-nowrap min-h-[36px] ${
+                                        selectedMobileDay === 'ALL'
+                                            ? 'bg-[#04c5e7] text-[#00262b]'
+                                            : 'bg-[#f9f8f6] text-[#52716c] border border-[#edebe3]'
+                                    }`}
+                                >
+                                    Agenda
+                                </button>
+                                {plan.plan_schedule.map((day, dIdx) => (
+                                    <button
+                                        key={dIdx}
+                                        onClick={() => setSelectedMobileDay(dIdx)}
+                                        className={`px-3 py-1.5 rounded-[94px] text-xs font-bold whitespace-nowrap min-h-[36px] ${
+                                            selectedMobileDay === dIdx
+                                                ? 'bg-[#04c5e7] text-[#00262b]'
+                                                : 'bg-[#f9f8f6] text-[#52716c] border border-[#edebe3]'
+                                        }`}
+                                    >
+                                        {day.dayName.slice(0, 3)}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Mobile Day / Agenda View (< 768px) */}
+                        <div className="block md:hidden space-y-4">
+                            {plan.plan_schedule
+                                .filter((_, idx) => selectedMobileDay === 'ALL' || selectedMobileDay === idx)
+                                .map((day, index) => {
+                                    const formattedDate = new Date(day.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                                    return (
+                                        <div key={index} className="bg-[#ffffff] border border-[#edebe3] rounded-2xl p-5 shadow-sm space-y-3">
+                                            <div className="flex items-center justify-between border-b border-[#f3f1ed] pb-3">
+                                                <div>
+                                                    <span className="font-extrabold text-sm text-[#00262b] uppercase tracking-wider">{day.dayName}</span>
+                                                    <span className="text-xs text-[#52716c] ml-2 font-medium">{formattedDate}</span>
+                                                </div>
+                                                <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-[94px] bg-[#f9f8f6] text-[#52716c] border border-[#edebe3]">
+                                                    {day.allocation.length} {day.allocation.length === 1 ? 'task' : 'tasks'}
+                                                </span>
+                                            </div>
+
+                                            {day.allocation.length === 0 ? (
+                                                <div className="flex items-center justify-center border border-dashed border-[#edebe3] rounded-xl p-4 bg-[#f9f8f6]">
+                                                    <span className="text-xs text-[#52716c] font-medium">Rest day — No scheduled study sessions</span>
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-2.5">
+                                                    {day.allocation.map((session, sIdx) => (
+                                                        <div 
+                                                            key={sIdx} 
+                                                            className="bg-[#f9f8f6] dark:bg-[var(--color-bg-subtle)] hover:bg-[var(--row-hover-bg)] border border-[#edebe3] dark:border-[var(--color-border)] rounded-xl p-3.5 transition-colors flex items-center justify-between gap-3"
+                                                        >
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className="font-extrabold text-xs text-[#00262b] dark:text-[var(--color-text)] line-clamp-2">
+                                                                    {session.topicTitle}
+                                                                </p>
+                                                                <span className="inline-block bg-[#ffffff] dark:bg-[var(--color-bg-card)] border border-[#edebe3] dark:border-[var(--color-border)] text-[#00262b] dark:text-[var(--color-text)] text-[10px] font-bold px-2 py-0.5 rounded-[94px] mt-1.5">
+                                                                    {session.focusArea}
+                                                                </span>
+                                                            </div>
+                                                            <div className="flex items-center gap-1 text-xs text-[#52716c] dark:text-[var(--color-text-secondary)] font-bold shrink-0">
+                                                                <Clock size={13} />
+                                                                <span>{session.hours}h</span>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })
+                            }
+                        </div>
+
+                        {/* Desktop Calendar Columns Grid (>= 768px) */}
+                        <div className="hidden md:grid md:grid-cols-7 gap-4">
                             {plan.plan_schedule.map((day, index) => {
                                 const formattedDate = new Date(day.date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
                                 

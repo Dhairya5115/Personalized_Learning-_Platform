@@ -150,11 +150,11 @@ export default function CoursesList({ onSelectCourse }) {
                 </div>
 
                 {/* Search Bar */}
-                <div className="relative max-w-xs w-full">
-                    <Search className="absolute left-0.8 top-1/2 -translate-y-1/2 text-[#52716c]" size={18} />
+                <div className="relative w-full md:max-w-xs">
+                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#52716c]" size={18} />
                     <input 
                         type="text"
-                        className="w-full bg-[#ffffff] border border-[#e1ddd1] rounded-xl pl-12 pr-4 py-2.5 text-sm text-[#00262b] focus:outline-none focus:border-[#04c5e7] transition-all shadow-sm"
+                        className="w-full bg-[#ffffff] border border-[#e1ddd1] rounded-xl pl-10 pr-4 py-2.5 text-sm text-[#00262b] focus:outline-none focus:border-[#04c5e7] transition-all shadow-sm"
                         placeholder="Search courses..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
@@ -174,7 +174,7 @@ export default function CoursesList({ onSelectCourse }) {
                 </div>
             ) : (
                 /* Course Cards Grid */
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                     {filteredCourses.map(course => {
                         const isEnrolled = enrolledMap[course.id] !== undefined;
                         const isFree = parseFloat(course.price) === 0;
@@ -219,26 +219,26 @@ export default function CoursesList({ onSelectCourse }) {
                                                     if (onSelectCourse) onSelectCourse(course);
                                                     navigate(`/courses/${course.id}`);
                                                 }}
-                                                className="btn-primary w-full flex items-center justify-center gap-2 !text-xs !py-2.5"
+                                                className="btn-primary w-full flex items-center justify-center gap-2 !text-xs !py-2.5 min-h-[44px]"
                                             >
                                                 <span>Go to Course</span>
                                                 <ArrowRight size={16} />
                                             </button>
                                         ) : (
-                                            <div className="flex gap-2">
+                                            <div className="flex flex-col sm:flex-row gap-2">
                                                 <button 
                                                     onClick={() => {
                                                         if (onSelectCourse) onSelectCourse(course);
                                                         navigate(`/courses/${course.id}`);
                                                     }}
-                                                    className="btn-ghost flex-1 !text-xs !py-2.5 flex items-center justify-center"
+                                                    className="btn-ghost flex-1 !text-xs !py-2.5 flex items-center justify-center min-h-[44px]"
                                                 >
                                                     <span>View Details</span>
                                                 </button>
                                                 <button 
                                                     onClick={() => handleEnroll(course)}
                                                     disabled={actionLoadingId === course.id}
-                                                    className="btn-primary flex-1 !text-xs !py-2.5 flex items-center justify-center gap-1.5"
+                                                    className="btn-primary flex-1 !text-xs !py-2.5 flex items-center justify-center gap-1.5 min-h-[44px]"
                                                 >
                                                     <CreditCard size={15} />
                                                     <span>{actionLoadingId === course.id ? 'Opening...' : isFree ? 'Join Course' : 'Buy Course'}</span>
@@ -252,7 +252,7 @@ export default function CoursesList({ onSelectCourse }) {
                                                     if (onSelectCourse) onSelectCourse(course);
                                                     navigate(`/courses/${course.id}`);
                                                 }}
-                                                className="btn-primary w-full flex items-center justify-center gap-2 !text-xs !py-2.5"
+                                                className="btn-primary w-full flex items-center justify-center gap-2 !text-xs !py-2.5 min-h-[44px]"
                                             >
                                                 <span>Open Course (TA View)</span>
                                                 <ArrowRight size={16} />
@@ -260,7 +260,7 @@ export default function CoursesList({ onSelectCourse }) {
                                         ) : (
                                             <button 
                                                 onClick={() => navigate('/ta-catalog')}
-                                                className="btn-ghost w-full !text-xs !py-2.5"
+                                                className="btn-ghost w-full !text-xs !py-2.5 min-h-[44px]"
                                             >
                                                 Apply as TA for this Course
                                             </button>

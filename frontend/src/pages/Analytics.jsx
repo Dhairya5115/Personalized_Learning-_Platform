@@ -163,8 +163,8 @@ export default function Analytics() {
                     </h2>
                     
                     <div className="bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left border-collapse text-sm">
+                        <div className="table-responsive-container overflow-x-auto">
+                            <table className="w-full text-left border-collapse text-sm min-w-[550px]">
                                 <thead>
                                     <tr className="bg-slate-50 dark:bg-slate-850 border-b border-slate-100 dark:border-slate-800/80 text-slate-400 dark:text-slate-500 font-bold text-xs uppercase tracking-wider">
                                         <th className="px-6 py-4">Student Name</th>
@@ -231,26 +231,29 @@ export default function Analytics() {
 
         const width = 500;
         const height = 200;
-        const padding = 30;
+        const paddingLeft = 40;
+        const paddingRight = 30;
+        const paddingTop = 26;
+        const paddingBottom = 30;
         
         const points = quizTrends.map((t, idx) => {
-            const x = padding + (idx * (width - padding * 2)) / Math.max(1, quizTrends.length - 1);
-            const y = height - padding - (t.score * (height - padding * 2)) / 100;
+            const x = paddingLeft + (idx * (width - paddingLeft - paddingRight)) / Math.max(1, quizTrends.length - 1);
+            const y = height - paddingBottom - (t.score * (height - paddingTop - paddingBottom)) / 100;
             return { x, y, score: t.score, label: t.label };
         });
 
         const linePath = points.map((p, idx) => `${idx === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
 
         return (
-            <div className="w-full overflow-x-auto">
+            <div className="table-responsive-container overflow-x-auto">
                 <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} className="overflow-visible min-w-[320px]">
                     {/* Grid lines */}
                     {[0, 25, 50, 75, 100].map(val => {
-                        const y = height - padding - (val * (height - padding * 2)) / 100;
+                        const y = height - paddingBottom - (val * (height - paddingTop - paddingBottom)) / 100;
                         return (
                             <g key={val}>
-                                <line x1={padding} y1={y} x2={width - padding} y2={y} className="stroke-[#edebe3] dark:stroke-[#004d57]" strokeDasharray="3" />
-                                <text x={padding - 8} y={y + 4} className="fill-[#52716c] dark:fill-[#a5b6b1] text-[10px]" textAnchor="end">{val}%</text>
+                                <line x1={paddingLeft} y1={y} x2={width - paddingRight} y2={y} className="stroke-[#edebe3] dark:stroke-[#004d57]" strokeDasharray="3" />
+                                <text x={paddingLeft - 8} y={y + 4} className="fill-[#52716c] dark:fill-[#a5b6b1] text-[10px]" textAnchor="end">{val}%</text>
                             </g>
                         );
                     })}
@@ -259,13 +262,17 @@ export default function Analytics() {
                     <path d={linePath} fill="none" className="stroke-[#00262b] dark:stroke-[#04c5e7]" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
 
                     {/* Dots */}
-                    {points.map((p, idx) => (
-                        <g key={idx}>
-                            <circle cx={p.x} cy={p.y} r="5" className="fill-[#ffffff] dark:fill-[#00262b] stroke-[#04c5e7]" strokeWidth="3" />
-                            <text x={p.x} y={p.y - 12} data-chart-score="true" className="chart-score fill-[#00262b] dark:fill-[#f9f8f6] text-[9px] font-bold" textAnchor="middle">{p.score}%</text>
-                            <text x={p.x} y={height - 10} className="fill-[#52716c] dark:fill-[#a5b6b1] text-[9px]" textAnchor="middle">{p.label}</text>
-                        </g>
-                    ))}
+                    {points.map((p, idx) => {
+                        const scoreLabelX = Math.max(22, Math.min(width - 22, p.x));
+                        const scoreLabelY = Math.max(14, p.y - 10);
+                        return (
+                            <g key={idx}>
+                                <circle cx={p.x} cy={p.y} r="5" className="fill-[#ffffff] dark:fill-[#00262b] stroke-[#04c5e7]" strokeWidth="3" />
+                                <text x={scoreLabelX} y={scoreLabelY} data-chart-score="true" className="chart-score fill-[#00262b] dark:fill-[#f9f8f6] text-[9px] font-bold" textAnchor="middle">{p.score}%</text>
+                                <text x={p.x} y={height - 10} className="fill-[#52716c] dark:fill-[#a5b6b1] text-[9px]" textAnchor="middle">{p.label}</text>
+                            </g>
+                        );
+                    })}
                 </svg>
             </div>
         );
@@ -344,8 +351,8 @@ export default function Analytics() {
                 </h3>
 
                 <div className="bg-[#ffffff] border border-[#edebe3] rounded-2xl overflow-hidden shadow-sm">
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse text-sm">
+                    <div className="table-responsive-container overflow-x-auto">
+                        <table className="w-full text-left border-collapse text-sm min-w-[550px]">
                             <thead>
                                 <tr className="bg-[#f9f8f6] border-b border-[#edebe3] text-[#52716c] font-bold text-xs uppercase tracking-wider">
                                     <th className="px-6 py-4">Quiz Title</th>

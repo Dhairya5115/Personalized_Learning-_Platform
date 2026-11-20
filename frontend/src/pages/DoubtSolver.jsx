@@ -331,7 +331,7 @@ export default function DoubtSolver({ context, onClearContext }) {
     const showSuggestions = lastMsg && lastMsg.sender === 'bot' && lastMsg.suggestions && lastMsg.suggestions.length > 0 && !loading;
 
     return (
-        <div className="flex flex-col h-[calc(100vh-60px)] max-w-5xl mx-auto overflow-hidden">
+        <div className="flex flex-col h-[calc(100vh-80px)] h-[calc(100dvh-80px)] lg:h-[calc(100vh-60px)] lg:h-[calc(100dvh-60px)] max-w-5xl mx-auto overflow-hidden">
             <ConfirmModal
                 isOpen={showClearModal}
                 title="Clear Chat History?"
@@ -483,7 +483,7 @@ export default function DoubtSolver({ context, onClearContext }) {
                     </div>
 
                     {/* Chat Input Bar */}
-                    <footer className="p-4 md:p-6 bg-[#ffffff] border-t border-[#edebe3] shadow-lg">
+                    <footer className="p-3 sm:p-4 md:p-6 bg-[#ffffff] dark:bg-[var(--color-bg-card)] border-t border-[#edebe3] dark:border-[var(--color-border)] shadow-lg sticky bottom-0 z-10">
                         <div className="max-w-4xl mx-auto space-y-3">
                             <form onSubmit={handleSend} className="relative flex items-center">
                                 <input
@@ -492,12 +492,12 @@ export default function DoubtSolver({ context, onClearContext }) {
                                     onChange={(e) => setInputQuery(e.target.value)}
                                     placeholder={courseTitle ? `Ask anything about ${courseTitle}...` : "Ask any question about programming, data structures, math..."}
                                     disabled={loading}
-                                    className="w-full pl-5 pr-14 py-3.5 bg-[#ffffff] border-2 border-[#e1ddd1] rounded-[94px] text-sm text-[#00262b] placeholder:text-[#52716c] focus:outline-none focus:border-[#00262b] shadow-sm transition-all"
+                                    className="w-full pl-4 sm:pl-5 pr-14 py-3 sm:py-3.5 bg-[#ffffff] dark:bg-[var(--color-bg-card)] border-2 border-[#e1ddd1] dark:border-[var(--color-border)] rounded-[94px] text-base sm:text-sm text-[#00262b] dark:text-[var(--color-text)] placeholder:text-[#52716c] focus:outline-none focus:border-[#00262b] shadow-sm transition-all"
                                 />
                                 <button
                                     type="submit"
                                     disabled={!inputQuery.trim() || loading}
-                                    className="absolute right-2 p-2.5 bg-[#00262b] text-[#ffffff] hover:bg-[#04c5e7] hover:text-[#00262b] disabled:opacity-40 rounded-full transition-all shadow-sm"
+                                    className="absolute right-1.5 p-2.5 bg-[#00262b] text-[#ffffff] hover:bg-[#04c5e7] hover:text-[#00262b] disabled:opacity-40 rounded-full transition-all shadow-sm min-w-[44px] min-h-[44px] flex items-center justify-center"
                                     title="Send question"
                                 >
                                     <Send size={16} />

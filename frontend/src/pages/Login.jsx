@@ -118,15 +118,15 @@ export default function Login() {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-[#ffffff] px-4 py-12 relative overflow-hidden select-none">
-            <div className="bg-[#ffffff] border border-[#edebe3] w-full max-w-md rounded-2xl p-8 sm:p-10 shadow-lg flex flex-col relative z-10 transition-colors duration-200">
+        <div className="min-h-screen min-h-[100dvh] flex items-center justify-center bg-[#ffffff] dark:bg-[var(--color-bg)] px-4 py-8 sm:py-12 relative overflow-y-auto select-none">
+            <div className="bg-[#ffffff] dark:bg-[var(--color-bg-card)] border border-[#edebe3] dark:border-[var(--color-border)] w-full max-w-md rounded-2xl p-6 sm:p-10 shadow-lg flex flex-col relative z-10 transition-colors duration-200">
                 
                 {/* Logo and Greeting */}
                 <div className="flex flex-col items-center text-center mb-8">
                     <div className="bg-[#00262b] p-3.5 rounded-2xl text-[#04c5e7] shadow-sm mb-4">
                         <BookOpen size={30} />
                     </div>
-                    <h2 className="text-3xl font-extrabold text-[#00262b] tracking-tight leading-tight">
+                    <h2 className="text-2xl sm:text-3xl font-extrabold text-[#00262b] tracking-tight leading-tight">
                         {resetToken ? 'Reset Your Password' : isForgotPassword ? 'Forgot Password' : isRegistering ? 'Create an Account' : 'Welcome Back'}
                     </h2>
                     <p className="text-[#52716c] text-xs mt-2.5 max-w-[280px]">
@@ -176,7 +176,8 @@ export default function Login() {
                                 <button
                                     type="button"
                                     onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute right-3.5 top-1/2 transform -translate-y-1/2 text-[#52716c] hover:text-[#00262b] transition-colors p-1"
+                                    aria-label={showPassword ? "Hide password" : "Show password"}
+                                    className="absolute right-1 top-1/2 transform -translate-y-1/2 text-[#52716c] hover:text-[#00262b] dark:hover:text-[var(--color-text)] transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl"
                                 >
                                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                                 </button>
@@ -189,7 +190,7 @@ export default function Login() {
                                 <Lock className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-[#52716c]" size={16} />
                                 <input 
                                     type={showConfirmPassword ? 'text' : 'password'} 
-                                    className="w-full bg-[#ffffff] border border-[#e1ddd1] rounded-xl pl-10 pr-10 py-2.5 text-sm text-[#00262b] focus:outline-none focus:border-[#04c5e7]" 
+                                    className="w-full bg-[#ffffff] border border-[#e1ddd1] rounded-xl pl-10 pr-12 py-2.5 text-sm text-[#00262b] focus:outline-none focus:border-[#04c5e7]" 
                                     placeholder="••••••••"
                                     value={confirmPassword}
                                     onChange={(e) => setConfirmPassword(e.target.value)}
@@ -198,7 +199,8 @@ export default function Login() {
                                 <button
                                     type="button"
                                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                                    className="absolute right-3.5 top-1/2 transform -translate-y-1/2 text-[#52716c] hover:text-[#00262b] transition-colors p-1"
+                                    aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                                    className="absolute right-1 top-1/2 transform -translate-y-1/2 text-[#52716c] hover:text-[#00262b] dark:hover:text-[var(--color-text)] transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl"
                                 >
                                     {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                                 </button>
@@ -207,7 +209,7 @@ export default function Login() {
 
                         <button 
                             type="submit" 
-                            className="btn-primary w-full mt-2" 
+                            className="btn-primary w-full mt-2 min-h-[44px]" 
                             disabled={loading}
                         >
                             {loading ? 'Processing...' : 'Reset Password'}
@@ -258,14 +260,14 @@ export default function Login() {
                     <form onSubmit={handleSubmit} className="space-y-4">
                         {isRegistering && (
                             <>
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                                     <div>
                                         <label className="block text-[11px] font-bold text-[#52716c] uppercase tracking-wider mb-2">First Name</label>
                                         <div className="relative">
                                             <User className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-[#52716c]" size={14} />
                                             <input 
                                                 type="text" 
-                                                className="w-full bg-[#ffffff] border border-[#e1ddd1] rounded-xl pl-9 pr-4 py-2 text-sm text-[#00262b] focus:outline-none focus:border-[#04c5e7]" 
+                                                className="w-full bg-[#ffffff] border border-[#e1ddd1] rounded-xl pl-9 pr-4 py-2.5 text-sm text-[#00262b] focus:outline-none focus:border-[#04c5e7]" 
                                                 value={firstName}
                                                 onChange={(e) => setFirstName(e.target.value)}
                                                 required
@@ -278,7 +280,7 @@ export default function Login() {
                                             <User className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-[#52716c]" size={14} />
                                             <input 
                                                 type="text" 
-                                                className="w-full bg-[#ffffff] border border-[#e1ddd1] rounded-xl pl-9 pr-4 py-2 text-sm text-[#00262b] focus:outline-none focus:border-[#04c5e7]" 
+                                                className="w-full bg-[#ffffff] border border-[#e1ddd1] rounded-xl pl-9 pr-4 py-2.5 text-sm text-[#00262b] focus:outline-none focus:border-[#04c5e7]" 
                                                 value={lastName}
                                                 onChange={(e) => setLastName(e.target.value)}
                                                 required
@@ -305,7 +307,7 @@ export default function Login() {
                         <div>
                             <label className="block text-[11px] font-bold text-[#52716c] uppercase tracking-wider mb-2">Email Address</label>
                             <div className="relative">
-                                <Mail className="absolute left-0.99 top-1/2 transform -translate-y-1/2 text-[#52716c]" size={16} />
+                                <Mail className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-[#52716c]" size={16} />
                                 <input 
                                     type="email" 
                                     className="w-full bg-[#ffffff] border border-[#e1ddd1] rounded-xl pl-10 pr-4 py-2.5 text-sm text-[#00262b] focus:outline-none focus:border-[#04c5e7]" 
@@ -334,10 +336,10 @@ export default function Login() {
                                 )}
                             </div>
                             <div className="relative">
-                                <Lock className="absolute left-0.99 top-1/2 transform -translate-y-1/2 text-[#52716c]" size={16} />
+                                <Lock className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-[#52716c]" size={16} />
                                 <input 
                                     type={showPassword ? 'text' : 'password'} 
-                                    className="w-full bg-[#ffffff] border border-[#e1ddd1] rounded-xl pl-10 pr-10 py-2.5 text-sm text-[#00262b] focus:outline-none focus:border-[#04c5e7]" 
+                                    className="w-full bg-[#ffffff] border border-[#e1ddd1] rounded-xl pl-10 pr-12 py-2.5 text-sm text-[#00262b] focus:outline-none focus:border-[#04c5e7]" 
                                     placeholder="••••••••"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
@@ -346,7 +348,7 @@ export default function Login() {
                                 <button
                                     type="button"
                                     onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute right-3.5 top-1/2 transform -translate-y-1/2 text-[#52716c] hover:text-[#00262b] transition-colors p-1"
+                                    className="absolute right-1 top-1/2 transform -translate-y-1/2 text-[#52716c] hover:text-[#00262b] dark:hover:text-[var(--color-text)] transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center rounded-xl"
                                     title={showPassword ? "Hide password" : "Show password"}
                                 >
                                     {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -356,7 +358,7 @@ export default function Login() {
 
                         <button 
                             type="submit" 
-                            className="btn-primary w-full mt-4 disabled:opacity-50" 
+                            className="btn-primary w-full mt-4 disabled:opacity-50 min-h-[44px]" 
                             disabled={loading}
                         >
                             {loading ? 'Processing...' : isRegistering ? 'Create Account' : 'Log In'}

@@ -40,9 +40,9 @@ function MainAppContent() {
 
 
     return (
-        <div className="flex min-h-screen bg-[var(--color-bg)] text-[var(--color-text)] transition-colors duration-200">
+        <div className="flex flex-col lg:flex-row min-h-screen bg-[var(--color-bg)] text-[var(--color-text)] transition-colors duration-200">
             <Sidebar />
-            <main className="flex-1 p-6 md:p-10 overflow-y-auto max-w-7xl mx-auto w-full">
+            <main className="flex-1 p-4 sm:p-6 md:p-10 min-w-0 w-full max-w-7xl mx-auto overflow-x-hidden overflow-y-auto">
                 <Routes>
                     <Route path="/" element={<Navigate to="/dashboard" replace />} />
                     <Route path="/dashboard" element={<Dashboard />} />

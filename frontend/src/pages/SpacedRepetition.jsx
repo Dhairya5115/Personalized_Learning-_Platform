@@ -166,7 +166,7 @@ export default function SpacedRepetition() {
                                 How well did you remember this card?
                             </h4>
                             
-                            <div className="flex justify-center gap-3">
+                            <div className="flex justify-center gap-2 sm:gap-3">
                                 {[0, 1, 2, 3, 4, 5].map((val) => (
                                     <button 
                                         key={val} 
@@ -174,7 +174,7 @@ export default function SpacedRepetition() {
                                             e.stopPropagation();
                                             handleRatingSubmit(val);
                                         }}
-                                        className={`w-10 h-10 rounded-2xl flex items-center justify-center font-extrabold text-sm border transition-colors shadow-sm ${
+                                        className={`w-11 h-11 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center font-extrabold text-sm border transition-colors shadow-sm min-w-[44px] min-h-[44px] ${
                                             val >= 3 
                                                 ? 'bg-[#f3f1ed] hover:bg-[#00262b] hover:text-[#04c5e7] border-[#04c5e7] text-[#00262b]' 
                                                 : 'bg-[#f3f1ed] hover:bg-[#d64000] hover:text-white border-[#d64000]/40 text-[#d64000]'

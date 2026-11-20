@@ -104,34 +104,34 @@ export default function StudentProgressTracker() {
             )}
 
             {/* KPI Metrics Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                <div className="bg-[#ffffff] border border-[#edebe3] rounded-2xl p-6 shadow-sm flex items-center gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
+                <div className="bg-[#ffffff] border border-[#edebe3] rounded-2xl p-5 sm:p-6 shadow-sm flex items-center gap-4">
                     <div className="bg-[#00262b] p-3.5 rounded-2xl text-[#04c5e7] shadow-sm">
                         <Users size={24} />
                     </div>
                     <div>
                         <span className="text-[11px] font-bold uppercase tracking-wider text-[#52716c]">Total Students</span>
-                        <h3 className="text-2xl font-extrabold text-[#00262b] mt-0.5">{totalStudents}</h3>
+                        <h3 className="text-xl sm:text-2xl font-extrabold text-[#00262b] mt-0.5">{totalStudents}</h3>
                     </div>
                 </div>
 
-                <div className="bg-[#ffffff] border border-[#edebe3] rounded-2xl p-6 shadow-sm flex items-center gap-4">
+                <div className="bg-[#ffffff] border border-[#edebe3] rounded-2xl p-5 sm:p-6 shadow-sm flex items-center gap-4">
                     <div className="bg-[#f9f8f6] border border-[#e1ddd1] p-3.5 rounded-2xl text-[#00262b]">
                         <Activity size={24} />
                     </div>
                     <div>
                         <span className="text-[11px] font-bold uppercase tracking-wider text-[#52716c]">Average Progress</span>
-                        <h3 className="text-2xl font-extrabold text-[#00262b] mt-0.5">{avgProgress}%</h3>
+                        <h3 className="text-xl sm:text-2xl font-extrabold text-[#00262b] mt-0.5">{avgProgress}%</h3>
                     </div>
                 </div>
 
-                <div className="bg-[#ffffff] border border-[#edebe3] rounded-2xl p-6 shadow-sm flex items-center gap-4">
+                <div className="bg-[#ffffff] border border-[#edebe3] rounded-2xl p-5 sm:p-6 shadow-sm flex items-center gap-4">
                     <div className="bg-[#f3f1ed] border border-[#e1ddd1] p-3.5 rounded-2xl text-[#d64000]">
                         <Award size={24} />
                     </div>
                     <div>
                         <span className="text-[11px] font-bold uppercase tracking-wider text-[#52716c]">Average Score</span>
-                        <h3 className="text-2xl font-extrabold text-[#00262b] mt-0.5">{avgSkill}%</h3>
+                        <h3 className="text-xl sm:text-2xl font-extrabold text-[#00262b] mt-0.5">{avgSkill}%</h3>
                     </div>
                 </div>
             </div>
@@ -140,11 +140,11 @@ export default function StudentProgressTracker() {
             <div className="bg-[#ffffff] border border-[#edebe3] rounded-2xl p-4 flex flex-col sm:flex-row gap-4 items-center shadow-sm">
                 {/* Search query box */}
                 <div className="relative flex-1 w-full">
-                    <Search className="absolute left-0.95 top-1/2 transform -translate-y-1/2 text-[#52716c]" size={16} />
+                    <Search className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-[#52716c]" size={16} />
                     <input 
                         type="text"
                         placeholder="Search student name or email..."
-                        className="w-full bg-[#ffffff] border border-[#e1ddd1] pl-10 pr-4 py-2.5 rounded-xl text-xs text-[#00262b] focus:outline-none focus:border-[#04c5e7]"
+                        className="w-full bg-[#ffffff] border border-[#e1ddd1] pl-10 pr-4 py-2.5 rounded-xl text-sm sm:text-xs text-[#00262b] focus:outline-none focus:border-[#04c5e7]"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                     />

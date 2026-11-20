@@ -116,7 +116,7 @@ export function TaCourseCatalog() {
             </div>
 
             {/* Courses Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {courses.map(course => {
                     const status = getAppStatus(course.id);
                     return (
@@ -176,8 +176,8 @@ export function TaCourseCatalog() {
 
             {/* Application Modal */}
             {selectedCourse && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#00262b]/60 backdrop-blur-sm animate-in fade-in duration-200 overflow-y-auto">
-                    <div className="bg-[#ffffff] border border-[#edebe3] rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5 my-8">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-[#00262b]/60 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-[#ffffff] border border-[#edebe3] rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl space-y-5 max-h-[90dvh] overflow-y-auto">
                         <div className="flex items-center justify-between border-b border-[#f3f1ed] pb-4">
                             <div>
                                 <h3 className="text-xl font-extrabold text-[#00262b]">
@@ -475,7 +475,7 @@ export function TaAssignedStudents() {
             ) : (
                 <div className="space-y-6">
                     {/* Course Selector Tabs */}
-                    <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-[#edebe3]">
+                    <div className="flex items-center gap-2 overflow-x-auto pb-2 border-b border-[#edebe3] tabs-scrollable">
                         {assignedCourses.map(course => (
                             <button
                                 key={course.id}
@@ -689,7 +689,7 @@ export function TaPendingRequests() {
             </div>
 
             {/* Filter Controls */}
-            <div className="flex items-center gap-2 border-b border-[#edebe3] pb-3 overflow-x-auto">
+            <div className="flex items-center gap-2 border-b border-[#edebe3] pb-3 overflow-x-auto tabs-scrollable">
                 {[
                     { id: 'ALL', label: 'All Requests', count: counts.ALL },
                     { id: 'PENDING', label: 'Pending', count: counts.PENDING },
@@ -810,8 +810,8 @@ export function TaPendingRequests() {
 
             {/* Scheduling Modal */}
             {selectedReq && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#00262b]/60 backdrop-blur-sm animate-in fade-in duration-200">
-                    <div className="bg-[#ffffff] border border-[#edebe3] rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-6">
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-[#00262b]/60 backdrop-blur-sm animate-in fade-in duration-200">
+                    <div className="bg-[#ffffff] border border-[#edebe3] rounded-2xl max-w-lg w-full p-5 sm:p-6 shadow-2xl space-y-6 max-h-[90dvh] overflow-y-auto">
                         <div className="flex items-center justify-between border-b border-[#f3f1ed] pb-4">
                             <div>
                                 <h3 className="text-xl font-extrabold text-[#00262b]">
@@ -993,7 +993,7 @@ export function TeacherTaReview() {
                 </p>
             </div>
 
-            <div className="flex items-center gap-2 border-b border-[#edebe3] pb-3 overflow-x-auto">
+            <div className="flex items-center gap-2 border-b border-[#edebe3] pb-3 overflow-x-auto tabs-scrollable">
                 {[
                     { id: 'ALL', label: 'All Applications', count: counts.ALL },
                     { id: 'PENDING', label: 'Pending', count: counts.PENDING },

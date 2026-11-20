@@ -69,6 +69,8 @@
     font-size: 100%;
     background-color: var(--color-bg);
     color: var(--color-text);
+    overflow-x: hidden;
+    width: 100%;
   }
   
   body {
@@ -82,12 +84,16 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     transition: background-color 0.2s ease, color 0.2s ease;
+    overflow-x: hidden;
+    width: 100%;
+    min-height: 100vh;
+    min-height: 100dvh;
   }
   
   h1 {
     font-family: var(--font-family);
-    font-size: 30px;
-    line-height: 36px;
+    font-size: clamp(22px, 4vw, 30px);
+    line-height: clamp(28px, 4.8vw, 36px);
     font-weight: 800;
     color: var(--color-text);
     letter-spacing: -0.02em;
@@ -95,8 +101,8 @@
 
   h2 {
     font-family: var(--font-family);
-    font-size: clamp(32px, 5vw, 72px);
-    line-height: clamp(38px, 5.5vw, 79.2px);
+    font-size: clamp(20px, 3.8vw, 48px);
+    line-height: clamp(26px, 4.4vw, 54px);
     font-weight: 900;
     color: var(--color-text);
     letter-spacing: -0.03em;
@@ -104,8 +110,8 @@
 
   h3 {
     font-family: var(--font-family);
-    font-size: clamp(24px, 3.5vw, 41px);
-    line-height: clamp(30px, 4.2vw, 49.2px);
+    font-size: clamp(17px, 3vw, 30px);
+    line-height: clamp(22px, 3.6vw, 36px);
     font-weight: 900;
     color: var(--color-text);
     letter-spacing: -0.02em;
@@ -113,8 +119,8 @@
 
   h4 {
     font-family: var(--font-family);
-    font-size: 24px;
-    line-height: 28.8px;
+    font-size: clamp(15px, 2.4vw, 22px);
+    line-height: clamp(20px, 3vw, 26px);
     font-weight: 700;
     color: var(--color-text);
     letter-spacing: -0.01em;
@@ -129,6 +135,7 @@
   input[type="password"], 
   input[type="number"], 
   input[type="url"], 
+  input[type="tel"],
   input[type="datetime-local"], 
   select, 
   textarea {
@@ -143,11 +150,50 @@
     transition: all 0.15s ease-in-out;
   }
 
+  /* Prevent automatic zoom on iOS Safari */
+  @media (max-width: 639px) {
+    input[type="text"], 
+    input[type="email"], 
+    input[type="password"], 
+    input[type="number"], 
+    input[type="url"], 
+    input[type="tel"],
+    input[type="datetime-local"], 
+    select, 
+    textarea {
+      font-size: 16px !important;
+    }
+  }
+
   input:focus, select:focus, textarea:focus {
     outline: none;
     border-color: var(--color-primary);
     box-shadow: 0 0 0 3px rgba(4, 197, 231, 0.2);
   }
+
+  :focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+}
+
+/* Responsive Table Wrapper */
+.table-responsive-container {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Horizontal Scrollable Tabs */
+.tabs-scrollable {
+  display: flex;
+  overflow-x: auto;
+  white-space: nowrap;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.tabs-scrollable::-webkit-scrollbar {
+  display: none;
 }
 
 /* Custom edX Component Utilities */
