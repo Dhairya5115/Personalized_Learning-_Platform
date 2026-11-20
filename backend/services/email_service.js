@@ -21,7 +21,7 @@ function getActiveProvider() {
 
 function getSenderInfo() {
     const name = process.env.EMAIL_SENDER_NAME || 'TailorLearn';
-    const email = process.env.BREVO_SENDER_EMAIL || process.env.RESEND_FROM || process.env.SMTP_FROM || process.env.SMTP_USER || 'no-reply@tailorlearn.com';
+    const email = process.env.BREVO_SENDER_EMAIL || process.env.SMTP_USER || process.env.RESEND_FROM || process.env.SMTP_FROM || 'dnshah5115@gmail.com';
     return { name, email };
 }
 
